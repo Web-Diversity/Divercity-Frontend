@@ -1,0 +1,643 @@
+[
+  {
+    "id": "osm-way-224899179",
+    "name": "문화관",
+    "lat": 37.4965434,
+    "lng": 126.9542572,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/224899179",
+    "aliases": []
+  },
+  {
+    "id": "osm-way-1381653371",
+    "name": "백마관",
+    "lat": 37.4978154,
+    "lng": 126.9562729,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653371",
+    "aliases": []
+  },
+  {
+    "id": "osm-way-1381653387",
+    "name": "미래관",
+    "lat": 37.4955684,
+    "lng": 126.9585186,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653387",
+    "aliases": []
+  },
+  {
+    "id": "osm-way-1381653405",
+    "name": "형남공학관",
+    "lat": 37.4958538,
+    "lng": 126.9559487,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653405",
+    "aliases": [
+      "Hyeongnam Engineering Building",
+      "Engineering building",
+      "Tòa nhà kỹ thuật Hyeongnam"
+    ],
+    "en": "Hyeongnam Engineering Building",
+    "vi": "Tòa nhà kỹ thuật Hyeongnam"
+  },
+  {
+    "id": "osm-way-1381653406",
+    "name": "베어드홀",
+    "lat": 37.4964411,
+    "lng": 126.9562946,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653406",
+    "aliases": [
+      "Baird Hall",
+      "Tòa nhà Baird"
+    ],
+    "en": "Baird Hall",
+    "vi": "Tòa nhà Baird"
+  },
+  {
+    "id": "osm-way-1381653408",
+    "name": "한국기독교박물관",
+    "lat": 37.4956511,
+    "lng": 126.9570496,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653408",
+    "aliases": [
+      "Korean Christian Museum",
+      "Bảo tàng Cơ đốc giáo Hàn Quốc"
+    ],
+    "en": "Korean Christian Museum",
+    "vi": "Bảo tàng Cơ đốc giáo Hàn Quốc"
+  },
+  {
+    "id": "osm-way-1381653409",
+    "name": "한경직기념관",
+    "lat": 37.4956319,
+    "lng": 126.9574726,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653409",
+    "aliases": [
+      "Han Kyungchik Memorial Hall",
+      "Tòa nhà tưởng niệm Han Kyungchik"
+    ],
+    "en": "Han Kyungchik Memorial Hall",
+    "vi": "Tòa nhà tưởng niệm Han Kyungchik"
+  },
+  {
+    "id": "osm-way-1381653438",
+    "name": "중앙도서관",
+    "lat": 37.4962342,
+    "lng": 126.9585774,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653438",
+    "aliases": [
+      "Central Library",
+      "Library",
+      "Thư viện trung tâm",
+      "Thư viện"
+    ],
+    "en": "Central Library",
+    "vi": "Thư viện trung tâm"
+  },
+  {
+    "id": "osm-way-1381653440",
+    "name": "신양관",
+    "lat": 37.4962766,
+    "lng": 126.9581822,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653440",
+    "aliases": []
+  },
+  {
+    "id": "osm-way-1381653452",
+    "name": "조만식기념관",
+    "lat": 37.497053,
+    "lng": 126.9580287,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653452",
+    "aliases": [
+      "Jo Man Sik Memorial Hall",
+      "Tòa nhà tưởng niệm Jo Man Sik"
+    ],
+    "en": "Jo Man Sik Memorial Hall",
+    "vi": "Tòa nhà tưởng niệm Jo Man Sik"
+  },
+  {
+    "id": "osm-way-1381653453",
+    "name": "웨스트민스터홀",
+    "lat": 37.4968122,
+    "lng": 126.9583432,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653453",
+    "aliases": [
+      "Westminster Hall",
+      "Tòa nhà Westminster"
+    ],
+    "en": "Westminster Hall",
+    "vi": "Tòa nhà Westminster"
+  },
+  {
+    "id": "osm-way-1381653456",
+    "name": "진리관",
+    "lat": 37.4970472,
+    "lng": 126.9575596,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381653456",
+    "aliases": [
+      "Veritas Hall",
+      "Tòa nhà Veritas"
+    ],
+    "en": "Veritas Hall",
+    "vi": "Tòa nhà Veritas"
+  },
+  {
+    "id": "osm-way-1381930900",
+    "name": "학생회관",
+    "lat": 37.4969884,
+    "lng": 126.9564358,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1381930900",
+    "aliases": [
+      "Student Union",
+      "Student Union Building",
+      "Nhà sinh viên",
+      "Hội trường sinh viên"
+    ],
+    "en": "Student Union",
+    "vi": "Nhà sinh viên"
+  },
+  {
+    "id": "osm-way-1382013423",
+    "name": "숭덕경상관",
+    "lat": 37.4969187,
+    "lng": 126.9548442,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1382013423",
+    "aliases": [
+      "Soongduk Economics & Business Building",
+      "Business building",
+      "Tòa nhà kinh tế và kinh doanh Soongduk"
+    ],
+    "en": "Soongduk Economics & Business Building",
+    "vi": "Tòa nhà kinh tế và kinh doanh Soongduk"
+  },
+  {
+    "id": "osm-way-1382013457",
+    "name": "정보과학관",
+    "lat": 37.4945327,
+    "lng": 126.9598035,
+    "kind": "campus",
+    "source": "https://www.openstreetmap.org/way/1382013457",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-11898490470",
+    "name": "설쌈냉면",
+    "lat": 37.4951569,
+    "lng": 126.9567399,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/11898490470",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-12074370293",
+    "name": "덤",
+    "lat": 37.4947635,
+    "lng": 126.9567701,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/12074370293",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-12074535141",
+    "name": "고렝",
+    "lat": 37.4944339,
+    "lng": 126.9586334,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/12074535141",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-12074557284",
+    "name": "추억과김밥",
+    "lat": 37.4944274,
+    "lng": 126.9586812,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/12074557284",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-12074590559",
+    "name": "쉼표(숭실대점)",
+    "lat": 37.4953551,
+    "lng": 126.9548594,
+    "kind": "cafe",
+    "source": "https://www.openstreetmap.org/node/12074590559",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-12074785965",
+    "name": "상투골",
+    "lat": 37.4952077,
+    "lng": 126.954934,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/12074785965",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-12795268735",
+    "name": "스타벅스",
+    "lat": 37.495414,
+    "lng": 126.954892,
+    "kind": "cafe",
+    "source": "https://www.openstreetmap.org/node/12795268735",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946900279",
+    "name": "다원 맛칼국수",
+    "lat": 37.4955551,
+    "lng": 126.9535372,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946900279",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946900292",
+    "name": "다원 정성담은 집밥",
+    "lat": 37.4949569,
+    "lng": 126.9560411,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946900292",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934411",
+    "name": "술렁슬렁 부엌",
+    "lat": 37.4946078,
+    "lng": 126.955445,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934411",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934413",
+    "name": "비에이치씨(BHC)치킨 숭실대점",
+    "lat": 37.4946598,
+    "lng": 126.9573749,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934413",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934421",
+    "name": "팔팔구(889)",
+    "lat": 37.4950974,
+    "lng": 126.9552494,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934421",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934429",
+    "name": "면식당 상도점",
+    "lat": 37.4950807,
+    "lng": 126.9570285,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934429",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934450",
+    "name": "춘천닭갈비",
+    "lat": 37.4961695,
+    "lng": 126.9533053,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934450",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934475",
+    "name": "대패상회 숭실대점",
+    "lat": 37.4946697,
+    "lng": 126.9540504,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934475",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934484",
+    "name": "손칼국수",
+    "lat": 37.4949674,
+    "lng": 126.9578464,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934484",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934495",
+    "name": "스팅(Sting)",
+    "lat": 37.495325,
+    "lng": 126.9553062,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934495",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934522",
+    "name": "찌개대학 부대과",
+    "lat": 37.4947953,
+    "lng": 126.956625,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934522",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934527",
+    "name": "핵밥 숭실대점",
+    "lat": 37.4948356,
+    "lng": 126.9563996,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934527",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934528",
+    "name": "운영미식",
+    "lat": 37.4948367,
+    "lng": 126.9552645,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934528",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934540",
+    "name": "신의주찹쌀순대",
+    "lat": 37.4949141,
+    "lng": 126.9570367,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934540",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934554",
+    "name": "강릉초당짬뽕순두부 숭실대점",
+    "lat": 37.4952122,
+    "lng": 126.9562438,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934554",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934555",
+    "name": "스톤504 스테이크하우스",
+    "lat": 37.4946329,
+    "lng": 126.957769,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934555",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934557",
+    "name": "고기스토리",
+    "lat": 37.4951093,
+    "lng": 126.9560813,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934557",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934559",
+    "name": "본죽&비빔밥 숭실대역점",
+    "lat": 37.49734,
+    "lng": 126.9530061,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934559",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934588",
+    "name": "김삼구-김치삼겹구이",
+    "lat": 37.4954269,
+    "lng": 126.9537876,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934588",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934656",
+    "name": "샤브로21 숭실대",
+    "lat": 37.4949151,
+    "lng": 126.9561921,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934656",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934667",
+    "name": "따뜻한밥상 숭실대점",
+    "lat": 37.4958908,
+    "lng": 126.9533133,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934667",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934678",
+    "name": "부리또집(BURRITO ZIP)",
+    "lat": 37.495058,
+    "lng": 126.956241,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934678",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934733",
+    "name": "먹돼지",
+    "lat": 37.4949728,
+    "lng": 126.9566545,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934733",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934750",
+    "name": "도쿄라멘3900",
+    "lat": 37.495025,
+    "lng": 126.9564058,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934750",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934754",
+    "name": "긴자료코 숭실대입구역점",
+    "lat": 37.4952751,
+    "lng": 126.9556539,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934754",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934792",
+    "name": "이모이모",
+    "lat": 37.4957103,
+    "lng": 126.9537496,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934792",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934800",
+    "name": "더진국숭실대점",
+    "lat": 37.494768,
+    "lng": 126.9569343,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934800",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934803",
+    "name": "숭실골 고기마을",
+    "lat": 37.4947856,
+    "lng": 126.9579576,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934803",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934837",
+    "name": "상도국수",
+    "lat": 37.4973641,
+    "lng": 126.9533375,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934837",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934849",
+    "name": "불타는 소금구이",
+    "lat": 37.4960268,
+    "lng": 126.9532242,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934849",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934852",
+    "name": "상도로3가",
+    "lat": 37.4946534,
+    "lng": 126.9570751,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934852",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934855",
+    "name": "베트남식당 퍼민",
+    "lat": 37.4949009,
+    "lng": 126.9583177,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934855",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934863",
+    "name": "뚝배기 스파게티",
+    "lat": 37.4946735,
+    "lng": 126.9589811,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934863",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934894",
+    "name": "블루힐",
+    "lat": 37.4952583,
+    "lng": 126.9559497,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934894",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934947",
+    "name": "79대포 숭실대점",
+    "lat": 37.4958037,
+    "lng": 126.9536711,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934947",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934975",
+    "name": "니세코스프카레",
+    "lat": 37.4944715,
+    "lng": 126.9587538,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934975",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946934994",
+    "name": "썬 키친(sun`s kitchen)",
+    "lat": 37.4958652,
+    "lng": 126.9536069,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946934994",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946935004",
+    "name": "미식관",
+    "lat": 37.4946411,
+    "lng": 126.9575475,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946935004",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946935005",
+    "name": "읿",
+    "lat": 37.4946984,
+    "lng": 126.9585813,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946935005",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946935006",
+    "name": "샤브온당 숭실대점",
+    "lat": 37.4947784,
+    "lng": 126.9567964,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946935006",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946935007",
+    "name": "마라탕전문점 샹츠마라 숭실대점",
+    "lat": 37.4951369,
+    "lng": 126.9567133,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946935007",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946935029",
+    "name": "깍뚝집",
+    "lat": 37.4973017,
+    "lng": 126.9536608,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946935029",
+    "aliases": []
+  },
+  {
+    "id": "osm-node-13946935060",
+    "name": "쉐프의목장",
+    "lat": 37.4969398,
+    "lng": 126.9535408,
+    "kind": "restaurant",
+    "source": "https://www.openstreetmap.org/node/13946935060",
+    "aliases": []
+  }
+]
