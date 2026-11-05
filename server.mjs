@@ -3,14 +3,18 @@ import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import * as chat from './chat-model.mjs';
+import * as userModel from './user-model.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const dataDir=process.env.CLASSROOM_DATA_DIR||path.join(root,'.data');
 await mkdir(dataDir,{recursive:true});
 let db;try{db=JSON.parse(await readFile(path.join(dataDir,'chat.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;db=chat.newChatState();}
+let users;try{users=JSON.parse(await readFile(path.join(dataDir,'users.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;users=userModel.newUserState();}
 let token='';try{const env=await readFile(path.join(root,'.env.local'),'utf8');token=env.trim().match(/^MAPBOX_PUBLIC_TOKEN=(pk\.[^\s]+)/m)?.[1]||'';}catch{}
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.json':'application/json','.jpg':'image/jpeg','.png':'image/png','.woff2':'font/woff2'};
 let saving=Promise.resolve();
 function persist(){const snapshot=JSON.stringify(db);saving=saving.then(async()=>{await writeFile(path.join(dataDir,'chat.tmp'),snapshot);await rename(path.join(dataDir,'chat.tmp'),path.join(dataDir,'chat.json'));});return saving;}
+let savingUsers=Promise.resolve();
+function persistUsers(){const snapshot=JSON.stringify(users);savingUsers=savingUsers.then(async()=>{await writeFile(path.join(dataDir,'users.tmp'),snapshot);await rename(path.join(dataDir,'users.tmp'),path.join(dataDir,'users.json'));});return savingUsers;}
 async function readBody(req){let body='';for await(const part of req){body+=part;if(body.length>12000)throw Error('요청이 너무 큽니다.');}return JSON.parse(body||'{}');}
 const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
 http.createServer(async(req,res)=>{
@@ -25,6 +29,11 @@ http.createServer(async(req,res)=>{
    if(req.method==='GET'){
     if(url.pathname==='/api/rooms'){json(res,200,chat.listRooms(db,auth));return;}
     if(url.pathname.startsWith('/api/rooms/')){json(res,200,chat.getRoom(db,auth,url.pathname.split('/')[3]));return;}
+   }
+   if(req.method==='POST'&&(url.pathname==='/api/signup'||url.pathname==='/api/login')){
+    const body=await readBody(req);const signingUp=url.pathname==='/api/signup';
+    const result=await (signingUp?userModel.signup:userModel.login)(users,body);
+    await persistUsers();json(res,signingUp?201:200,result);return;
    }
    if(req.method==='POST'){
     const body=await readBody(req);let result;
@@ -48,6 +57,6 @@ http.createServer(async(req,res)=>{
   const file=path.resolve(root,relative),ext=path.extname(file);
   if(!file.startsWith(root+path.sep)||!types[ext]){res.writeHead(404);res.end();return;}
   const content=await readFile(file);res.writeHead(200,{'Content-Type':types[ext],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(content);
- }catch(e){if(req.url.startsWith('/api/'))json(res,400,{error:e.message});else{res.writeHead(404);res.end('Not found');}}
+ }catch(e){if(req.url.startsWith('/api/'))json(res,e.status||400,{error:e.message});else{res.writeHead(404);res.end('Not found');}}
 }).listen(Number(process.env.PORT)||5187,'127.0.0.1',()=>console.log('Classroom preview: http://127.0.0.1:'+(process.env.PORT||5187)));
 
