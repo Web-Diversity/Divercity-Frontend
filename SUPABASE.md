@@ -46,7 +46,7 @@ if (error) throw error;
 
 게시판 테이블과 RLS는 아래 migration을 기준으로 구현하세요. 기능 작업자는 임의의 테이블/컬럼을 추가하거나 대시보드에서 SQL을 즉흥적으로 적용하지 말고, 스키마 변경은 새 migration으로 제안하세요.
 
-- `profiles`: `auth.users.id`를 키로 사용하는 공개 프로필. 계정 생성 trigger가 기본 프로필을 만듦
+- `profiles`: `auth.users.id`를 키로 사용하는 공개 프로필. 계정 생성 trigger와 기존 `auth.users` backfill이 기본 프로필을 만듦
 - `posts`: `free`, `course`, `review`, `meetup` 종류와 화면 입력값에 대응하는 강의·장소·일정·정원·좌표 필드
 - `comments`: 게시글 및 작성자 UUID, 본문, 생성 시각
 - `post_likes`, `saved_posts`, `meetup_participants`: 사용자별 관계 테이블. 저장/참여 정보는 본인 행만 조회 가능

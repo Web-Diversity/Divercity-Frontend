@@ -247,6 +247,17 @@ create trigger on_auth_user_created_create_profile
   after insert on auth.users
   for each row execute function public.create_profile_for_new_user();
 
+insert into public.profiles (id, nickname)
+select
+  u.id,
+  coalesce(
+    nullif(left(btrim(u.raw_user_meta_data ->> 'nickname'), 20), ''),
+    nullif(left(split_part(coalesce(u.email, ''), '@', 1), 20), ''),
+    '새내기'
+  )
+from auth.users as u
+on conflict (id) do nothing;
+
 create function public.add_meetup_owner_as_participant()
 returns trigger
 language plpgsql
