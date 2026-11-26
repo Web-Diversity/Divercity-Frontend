@@ -2,7 +2,7 @@ import {mountMap} from './map.js';
 import {mountChat} from './chat.js';
 import {createPost,editPost,deletePost,addComment,toggleReaction,joinMeetup,selectPosts} from './model.js';
 import {seedPosts} from './data.js';
-import {createSupabaseClient,supabaseConfigured} from './auth.js';
+import {getSupabaseClient,supabaseConfigured} from './auth.js';
 let USER='classroom-me',currentUser=null,supabaseClient=null,authLoadError=false;
 const KEY='divercity-classroom-v1';
 const config={free:{name:'자유게시판',desc:'소소한 일상부터 궁금했던 이야기까지, 편하게 나눠요.',categories:['일상','질문','정보'],icon:'chat'},course:{name:'강의평',desc:'함께 듣고, 솔직하게 나누는 수업 이야기.',categories:['전공','교양'],icon:'book'},review:{name:'캠퍼스 리뷰',desc:'학교 주변의 작고 좋은 발견을 공유해요.',categories:['맛집','카페','시설'],icon:'star'},meetup:{name:'모임',desc:'혼자보다 함께, 새로운 캠퍼스 친구를 만나요.',categories:['스터디','언어교환','취미'],icon:'users'}};
@@ -34,7 +34,7 @@ function authMessage(error,signup){
 async function submitAuth(form){
  const button=form.querySelector('button.primary');if(button)button.disabled=true;
  try{
-  if(!supabaseClient)supabaseClient=await createSupabaseClient();
+  if(!supabaseClient)supabaseClient=await getSupabaseClient();
   if(!supabaseClient)throw Error('Supabase 설정이 비어 있습니다.');
   const values=Object.fromEntries(new FormData(form)),signup=form.dataset.mode==='signup';
   const result=signup?await supabaseClient.auth.signUp({email:values.email,password:values.password,options:{emailRedirectTo:location.origin}}):await supabaseClient.auth.signInWithPassword({email:values.email,password:values.password});
@@ -55,7 +55,7 @@ async function signOut(){if(!supabaseClient)return;const {error}=await supabaseC
 async function initializeAuth(){
  if(!supabaseConfigured)return;
  try{
-  supabaseClient=await createSupabaseClient();
+  supabaseClient=await getSupabaseClient();
   if(!supabaseClient)return;
   const {data,error}=await supabaseClient.auth.getSession();if(error)throw error;
   currentUser=data.session?.user||null;USER=currentUser?.id||'classroom-me';
