@@ -4,6 +4,7 @@
 
 ## 현재 상태
 
+- 이 프로젝트의 공동 Supabase는 `iwtorlgicqciocauztad`입니다 (`https://iwtorlgicqciocauztad.supabase.co`). 기여자는 별도 프로젝트를 만들지 말고 모두 이 프로젝트에 연결해야 데이터가 같은 곳에 저장됩니다.
 - 실제 배포 대상은 `online/static-site/`를 정적 빌드하는 구조입니다. 다른 `online/`의 Next.js/Drizzle 코드를 Supabase 연동 기준으로 사용하지 마세요.
 - 이메일/비밀번호 로그인과 세션 복원은 `online/static-site/js/app.js`에서 처리합니다.
 - Supabase 연결 코드는 `online/static-site/js/auth.js`의 `getSupabaseClient()`를 사용하세요. 이 함수는 페이지 내 Supabase 클라이언트를 하나만 만들어 재사용합니다.
@@ -12,9 +13,9 @@
 
 ## 로컬 설정
 
-1. `online/.env.example`을 `online/.env.local`로 복사합니다.
-2. Supabase 대시보드의 Project URL과 **Publishable key**를 입력합니다. 구형 프로젝트는 `anon` key를 사용할 수 있습니다.
-3. `online/.env.local`은 로컬 전용이며 Git에 커밋하거나 채팅에 붙여 넣지 마세요.
+1. `online/.env.example`을 각 기여자의 작업 환경에서 `online/.env.local`로 복사합니다.
+2. 위에 지정한 동일한 Supabase 프로젝트의 Project URL과 **Publishable key**를 입력합니다. 구형 프로젝트는 해당 프로젝트의 `anon` key를 사용할 수 있습니다.
+3. 각 기여자가 같은 프로젝트의 URL과 공개 키를 설정해야 합니다. `.env.local` 파일 자체는 로컬 전용이며 Git에 커밋하지 않습니다.
 4. 정적 배포 빌드 시 `online/build-static.mjs`가 설정을 `online/dist/js/supabase-config.js`에 넣습니다. 이 값은 브라우저에 공개되므로 URL과 publishable/anon key만 허용됩니다.
 
 ```env
