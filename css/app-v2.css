@@ -21,3 +21,25 @@ body[data-page=chat] .chat-welcome{width:min(380px,100%)}
 .mapboxgl-ctrl-bottom-left{bottom:98px!important}
 #preview-back{margin:15px;align-self:flex-start}
 @media(max-width:760px){body[data-page=chat] .layout{height:calc(100dvh - 64px);padding-bottom:105px}}
+/* 로그인 · 회원가입 */
+.auth-page{min-height:calc(100dvh - 72px);display:grid;place-items:start center;padding:20px 16px 60px}
+.auth-card{width:min(420px,100%);background:white;border:1px solid #e7edf5;border-radius:24px;padding:32px 28px;box-shadow:0 10px 40px #1d36580d}
+.auth-card .status-banner{font-size:12px;margin:0 0 18px}
+.auth-logo{width:56px;height:56px;border-radius:16px;object-fit:cover;display:block;margin:0 auto 14px}
+.auth-card h1{font-size:21px;text-align:center}
+.auth-sub{text-align:center;color:var(--muted);font-size:13px;margin:6px 0 22px}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;background:#f0f3f8;border-radius:12px;padding:4px;margin-bottom:22px}
+.auth-tabs button{padding:9px;border-radius:9px;font-size:13px;font-weight:700;color:#7b889b}
+.auth-tabs button.active{background:white;color:var(--green);box-shadow:0 1px 4px #1d365814}
+.password-wrap{position:relative;display:block}
+.password-wrap input{padding-right:58px}
+.pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:var(--green);padding:4px 6px}
+.field input[aria-invalid=true]{border-color:#d07a66}
+.auth-card .form-help{margin:-8px 0 0;font-size:12px}
+.auth-check{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#536780}
+.auth-check input{margin-top:2px;accent-color:var(--green)}
+.auth-submit{width:100%;padding:12px;margin-top:14px;border-radius:12px;font-size:14px}
+.auth-submit:disabled{opacity:.6}
+.auth-switch{text-align:center;font-size:12px;color:var(--muted);margin-top:18px}
+.auth-switch button{color:var(--green);font-weight:700;font-size:12px}
+@media(max-width:760px){.auth-page{min-height:calc(100dvh - 64px)}.auth-card{padding:26px 20px}}

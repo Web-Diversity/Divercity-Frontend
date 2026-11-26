@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="대학생 캠퍼스 커뮤니티 수업용 프로젝트"><title>로그인 · Divercity</title><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/app-v2.css"><script type="module" src="js/auth.js"></script></head>
+<body data-page="auth"><a class="skip-link" href="#main">본문 바로가기</a>
+<header><div class="app-topbar"><a class="round-button" href="index.html" aria-label="홈으로">←</a><a class="wordmark" href="index.html">Divercity</a><span class="round-button" aria-hidden="true" style="visibility:hidden"></span></div></header>
+<main class="auth-page" id="main">
+ <section class="auth-card">
+  <img class="auth-logo" src="assets/divercity-logo.jpg" alt="">
+  <h1 id="auth-title">다시 만나서 반가워요</h1>
+  <p class="auth-sub" id="auth-sub">로그인하고 캠퍼스 친구들과 이야기를 나눠보세요.</p>
+  <div class="auth-tabs" role="tablist" aria-label="로그인 또는 회원가입">
+   <button type="button" role="tab" id="tab-login" aria-controls="login-form" data-mode="login">로그인</button>
+   <button type="button" role="tab" id="tab-signup" aria-controls="signup-form" data-mode="signup">회원가입</button>
+  </div>
+
+  <form id="login-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+   <div class="form-fields">
+    <label class="field">이메일<input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="diver@university.ac.kr"></label>
+    <label class="field">비밀번호<span class="password-wrap"><input name="password" type="password" autocomplete="current-password" required maxlength="72"><button type="button" class="pw-toggle" aria-label="비밀번호 보기">보기</button></span></label>
+   </div>
+   <p class="form-error" role="alert"></p>
+   <button class="btn primary auth-submit">로그인</button>
+  </form>
+
+  <form id="signup-form" role="tabpanel" aria-labelledby="tab-signup" novalidate hidden>
+   <div class="form-fields">
+    <label class="field">이메일<input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="diver@university.ac.kr"></label>
+    <label class="field">닉네임<input name="nickname" autocomplete="nickname" required maxlength="20" placeholder="캠퍼스에서 불릴 이름"></label>
+    <label class="field">비밀번호<span class="password-wrap"><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="pw-help"><button type="button" class="pw-toggle" aria-label="비밀번호 보기">보기</button></span></label>
+    <label class="field">비밀번호 확인<input name="passwordConfirm" type="password" autocomplete="new-password" required maxlength="72"></label>
+    <p class="form-help" id="pw-help">비밀번호는 8자 이상, 영문과 숫자를 함께 써주세요.</p>
+    <label class="auth-check"><input name="agree" type="checkbox" required> 서로를 존중하는 커뮤니티 이용 규칙에 동의해요.</label>
+   </div>
+   <p class="form-error" role="alert"></p>
+   <button class="btn primary auth-submit">가입하기</button>
+  </form>
+
+  <p class="auth-switch" id="auth-switch"></p>
+ </section>
+</main>
+<div id="toast" class="toast" role="status" hidden></div>
+<noscript>이 사이트는 JavaScript를 켜야 사용할 수 있습니다.</noscript></body></html>
