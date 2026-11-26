@@ -2,7 +2,9 @@ import {mountMap} from './map.js';
 import {mountChat} from './chat.js';
 import {createPost,editPost,deletePost,addComment,toggleReaction,joinMeetup,selectPosts} from './model.js';
 import {seedPosts} from './data.js';
-const USER='classroom-me', KEY='divercity-classroom-v1';
+import {getSupabaseClient,supabaseConfigured} from './auth.js';
+let USER='classroom-me',currentUser=null,supabaseClient=null,authLoadError=false;
+const KEY='divercity-classroom-v1';
 const config={free:{name:'자유게시판',desc:'소소한 일상부터 궁금했던 이야기까지, 편하게 나눠요.',categories:['일상','질문','정보'],icon:'chat'},course:{name:'강의평',desc:'함께 듣고, 솔직하게 나누는 수업 이야기.',categories:['전공','교양'],icon:'book'},review:{name:'캠퍼스 리뷰',desc:'학교 주변의 작고 좋은 발견을 공유해요.',categories:['맛집','카페','시설'],icon:'star'},meetup:{name:'모임',desc:'혼자보다 함께, 새로운 캠퍼스 친구를 만나요.',categories:['스터디','언어교환','취미'],icon:'users'}};
 const paths={map:'index.html',home:'community.html',chat:'chat.html',free:'board.html',course:'courses.html',review:'reviews.html',meetup:'meetups.html',profile:'profile.html'};
 const page=document.body.dataset.page, main=document.querySelector('#main'), modal=document.querySelector('#modal');
@@ -15,13 +17,60 @@ state.profile ||= {university:'숭실대학교',department:'컴퓨터학부',bio
 let query='',category='전체',sort='latest',profileTab='mine',activeId=null,timer;
 function toast(message){const el=document.querySelector('#toast');el.textContent=message;el.hidden=false;clearTimeout(timer);timer=setTimeout(()=>el.hidden=true,3200);}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(state));return true;}catch{toast('브라우저 저장 공간을 사용할 수 없어요. 현재 화면에서만 유지됩니다.');return false;}}
+function requireLogin(){if(currentUser)return true;showAuthDialog('signin');return false;}
+function showAuthDialog(mode='signin'){
+ if(authLoadError){openModal('Supabase 연결을 확인해주세요','<p>Supabase 프로젝트 URL과 공개 키, 이메일 인증 설정을 확인한 뒤 새로고침해주세요.</p>');return;}
+ if(!supabaseConfigured){openModal('Supabase 연결 설정이 필요해요', '<p>Supabase 프로젝트를 만든 뒤 <code>js/supabase-config.js</code>에 프로젝트 URL과 공개 publishable/anon 키를 설정해주세요.</p>');return;}
+ const signup=mode==='signup';
+ openModal(signup?'회원가입':'로그인','<form id="auth-form" data-mode="'+mode+'"><div class="form-fields"><label class="field">이메일<input name="email" type="email" autocomplete="email" required maxlength="254"></label><label class="field">비밀번호<input name="password" type="password" autocomplete="'+(signup?'new-password':'current-password')+'" required minlength="8" maxlength="128"></label></div><p class="form-help">'+(signup?'가입 후 이메일 인증이 필요할 수 있어요.':'Divercity 계정으로 로그인합니다.')+'</p><p class="form-error" id="form-error" role="alert"></p><div class="form-buttons"><button type="button" class="btn" data-action="auth-mode" data-mode="'+(signup?'signin':'signup')+'">'+(signup?'기존 계정 로그인':'회원가입')+'</button><button class="btn primary">'+(signup?'계정 만들기':'로그인')+'</button></div></form>');
+}
+function authMessage(error,signup){
+ const message=String(error?.message||'');
+ if(/invalid login credentials|email not confirmed/i.test(message))return '이메일 또는 비밀번호를 확인하고, 인증 메일이 왔다면 먼저 인증해주세요.';
+ if(/already registered|user already registered/i.test(message))return '이미 가입된 이메일이에요. 로그인해 주세요.';
+ if(/password.*(weak|short)|at least/i.test(message))return '비밀번호는 8자 이상으로 입력해주세요.';
+ return signup?'회원가입을 완료하지 못했어요. 입력값과 Supabase 설정을 확인해주세요.':'로그인하지 못했어요. 입력값과 Supabase 설정을 확인해주세요.';
+}
+async function submitAuth(form){
+ const button=form.querySelector('button.primary');if(button)button.disabled=true;
+ try{
+  if(!supabaseClient)supabaseClient=await getSupabaseClient();
+  if(!supabaseClient)throw Error('Supabase 설정이 비어 있습니다.');
+  const values=Object.fromEntries(new FormData(form)),signup=form.dataset.mode==='signup';
+  const result=signup?await supabaseClient.auth.signUp({email:values.email,password:values.password,options:{emailRedirectTo:location.origin}}):await supabaseClient.auth.signInWithPassword({email:values.email,password:values.password});
+  if(result.error)throw result.error;
+  if(signup&&!result.data.session){modal.close();toast('가입 확인 이메일을 보냈어요. 메일의 인증 링크를 눌러주세요.');return;}
+  const user=result.data.user||result.data.session?.user;
+  if(user)applyUser(user);
+  modal.close();toast(signup?'회원가입했어요.':'로그인했어요.');
+ }catch(error){const field=form.querySelector('#form-error');if(field)field.textContent=authMessage(error,form.dataset.mode==='signup');}
+ finally{if(button&&button.isConnected)button.disabled=false;}
+}
+function applyUser(user){
+ currentUser=user||null;USER=currentUser?.id||'classroom-me';
+ if(currentUser){const profileName=currentUser.user_metadata?.nickname||currentUser.email?.split('@')[0];if(profileName&&(state.nickname==='새내기 다이버'||!state.nickname)){state.nickname=profileName.slice(0,20);persist();}}
+ render();
+}
+async function signOut(){if(!supabaseClient)return;const {error}=await supabaseClient.auth.signOut({scope:'local'});if(error){toast('로그아웃하지 못했어요. 다시 시도해주세요.');return;}applyUser(null);toast('로그아웃했어요.');}
+async function initializeAuth(){
+ if(!supabaseConfigured)return;
+ try{
+  supabaseClient=await getSupabaseClient();
+  if(!supabaseClient)return;
+  const {data,error}=await supabaseClient.auth.getSession();if(error)throw error;
+  currentUser=data.session?.user||null;USER=currentUser?.id||'classroom-me';
+  if(currentUser){const profileName=currentUser.user_metadata?.nickname||currentUser.email?.split('@')[0];if(profileName&&state.nickname==='새내기 다이버'){state.nickname=profileName.slice(0,20);persist();}}
+  supabaseClient.auth.onAuthStateChange((_event,session)=>{applyUser(session?.user||null);});
+  render();
+ }catch{authLoadError=true;}
+}
 function icon(name){const d={home:'M3 10 12 3l9 7M5 9v12h14V9M9 21v-8h6v8',chat:'M21 15a3 3 0 0 1-3 3H8l-5 3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3zM7 8h10M7 12h7',book:'M12 5v16M12 5C8 2 4 3 2 4v15c4-1 7-1 10 2 3-3 6-3 10-2V4c-4-1-7-2-10 1',star:'m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z',users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-4M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',heart:'M20 5c-3-3-6-1-8 1-2-2-5-4-8-1-5 5 3 11 8 16 5-5 13-11 8-16',pin:'M19 9c0 6-7 12-7 12S5 15 5 9a7 7 0 1 1 14 0M14 9a2 2 0 1 1-4 0 2 2 0 0 1 4 0'}[name]||'M5 12h14M12 5v14';return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>';}
 const stars=n=>'<span class="stars" aria-label="'+n+'점">'+ '★'.repeat(n)+'☆'.repeat(5-n)+'</span>';
 const date=s=>new Date(s).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});
 const url=p=>paths[p.type]+'?post='+encodeURIComponent(p.id);
 function meta(p){return '<div class="meta"><span>'+esc(p.author)+'</span><span>'+date(p.createdAt)+'</span><span class="green">♡ '+p.likes.length+'</span><span>댓글 '+p.comments.length+'</span>'+(p.sample?'<span>예시 글</span>':'')+'</div>';}
 function shell(){
- document.querySelector('#header').innerHTML='<div class="app-topbar"><button class="round-button" data-action="header-search" aria-label="지도 검색">'+icon('search')+'</button><a class="wordmark" href="index.html">Divercity</a><button class="round-button" data-action="notifications" aria-label="알림"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M9 21h6"/></svg></button></div>';
+ document.querySelector('#header').innerHTML='<div class="app-topbar"><button class="round-button" data-action="header-search" aria-label="지도 검색">'+icon('search')+'</button><a class="wordmark" href="index.html">Divercity</a><button class="btn small auth-button" data-action="auth">'+(currentUser?'로그아웃':'로그인')+'</button><button class="round-button" data-action="notifications" aria-label="알림"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M9 21h6"/></svg></button></div>';
  document.querySelector('#sidebar').innerHTML='<nav class="community-nav">'+[['home','커뮤니티'],['free','자유게시판'],['course','강의평'],['review','캠퍼스 리뷰'],['meetup','모임 목록']].map(([key,label])=>'<a class="'+(page===key?'active':'')+'" href="'+paths[key]+'">'+label+'</a>').join('')+'</nav>';
  let dock=document.querySelector('#app-dock');if(!dock){dock=document.createElement('nav');dock.id='app-dock';dock.setAttribute('aria-label','주요 메뉴');document.body.append(dock);}
  dock.innerHTML='<a class="'+(page==='map'?'active':'')+'" href="index.html">'+icon('pin')+'<span>지도</span></a><a class="'+(['home','free','course','review','meetup'].includes(page)?'active':'')+'" href="community.html">'+icon('book')+'<span>커뮤니티</span></a><button class="dock-create" data-action="create-meetup" aria-label="모임 만들기"><span><img src="assets/divercity-logo.jpg" alt=""></span><small>모임 만들기</small></button><a class="'+(page==='chat'?'active':'')+'" href="chat.html">'+icon('chat')+'<span>채팅</span></a><a class="'+(page==='profile'?'active':'')+'" href="profile.html">'+icon('users')+'<span>프로필</span></a>';
@@ -59,8 +108,11 @@ function detail(id){const p=state.posts.find(p=>p.id===id);if(!p){toast('글을 
 
 function writeForm(type=page,post=null,draft={}){if(!config[type])type='free';const values=post||draft,c=config[type];const field=(name,label,input='text',max=80)=>'<label class="field">'+label+'<input name="'+name+'" type="'+input+'" required maxlength="'+max+'" value="'+esc(values[name]||'')+'"></label>';
 openModal(post?'글 수정':'새 이야기 쓰기','<form id="post-form" data-id="'+(post?.id||'')+'"><div class="form-fields"><div class="form-row"><label class="field">게시판<select name="type" id="post-type" '+(post?'disabled':'')+'>'+Object.entries(config).map(([k,v])=>'<option value="'+k+'" '+(type===k?'selected':'')+'>'+v.name+'</option>').join('')+'</select></label><label class="field">분류<select name="category">'+c.categories.map(cat=>'<option '+(values.category===cat?'selected':'')+'>'+cat+'</option>').join('')+'</select></label></div>'+(type==='course'?'<div class="form-row">'+field('subject','과목명','text',50)+field('professor','교수명','text',30)+'</div>':'')+(['review','meetup'].includes(type)?field('place','장소','text',60):'')+(type==='meetup'?'<label class="field">지도 위치<select id="meetup-location" required><option value="">지도에서 모임 위치를 선택해주세요</option>'+campusPlaces.map(p=>'<option value="'+p.lng+','+p.lat+'" '+(Number(values.longitude)===p.lng&&Number(values.latitude)===p.lat?'selected':'')+'>'+esc(p.name)+'</option>').join('')+(values.longitude&&!campusPlaces.some(p=>p.lng===Number(values.longitude)&&p.lat===Number(values.latitude))?'<option selected value="'+Number(values.longitude)+','+Number(values.latitude)+'">지도에서 선택한 위치</option>':'')+'</select></label><input type="hidden" name="longitude" value="'+esc(values.longitude||'')+'"><input type="hidden" name="latitude" value="'+esc(values.latitude||'')+'">':'')+(['review','course'].includes(type)?'<label class="field">별점<select name="rating">'+[5,4,3,2,1].map(n=>'<option value="'+n+'" '+(Number(values.rating)===n?'selected':'')+'>'+n+'점</option>').join('')+'</select></label>':'')+(type==='meetup'?'<div class="form-row">'+field('date','날짜','date')+field('time','시간','time')+'</div><label class="field">정원 (작성자 포함)<input name="capacity" type="number" min="2" max="30" required value="'+(values.capacity||5)+'"></label>':'')+field('title','제목')+'<label class="field">내용<textarea name="body" required maxlength="3000" placeholder="함께 나누고 싶은 이야기를 적어주세요.">'+esc(values.body||'')+'</textarea></label></div><p class="form-help">이 브라우저에 저장되는 수업용 체험판입니다.</p><p class="form-error" id="form-error" role="alert"></p><div class="form-buttons"><button type="button" class="btn" data-action="close">취소</button><button class="btn primary">'+(post?'수정 완료':'등록하기')+'</button></div></form>');}
-document.addEventListener('click',e=>{const cat=e.target.closest('[data-category]'),tab=e.target.closest('[data-tab]');if(cat){category=cat.dataset.category;render();return;}if(tab){profileTab=tab.dataset.tab;render();return;}const el=e.target.closest('[data-action]');if(!el)return;const action=el.dataset.action,p=state.posts.find(p=>p.id===activeId);
-try{
+document.addEventListener('click',async e=>{const cat=e.target.closest('[data-category]'),tab=e.target.closest('[data-tab]');if(cat){category=cat.dataset.category;render();return;}if(tab){profileTab=tab.dataset.tab;render();return;}const el=e.target.closest('[data-action]');if(!el)return;const action=el.dataset.action,p=state.posts.find(p=>p.id===activeId);
+ try{
+ if(action==='auth'){if(currentUser)await signOut();else showAuthDialog('signin');return;}
+ if(action==='auth-mode'){showAuthDialog(el.dataset.mode);return;}
+ if(['write','create-meetup','edit-profile','edit','delete','confirm-delete','likes','saved','join'].includes(action)&&!requireLogin())return;
 if(action==='close')modal.close();
 if(action==='write')writeForm();
 if(action==='create-meetup')writeForm('meetup');
@@ -68,7 +120,7 @@ if(action==='header-search'){if(mapView)mapView.openSearch();else location.href=
 if(action==='notifications')openModal('알림','<div class="notice-card"><strong>나의 캠퍼스 활동</strong><p>참여한 모임 '+state.posts.filter(p=>p.type==='meetup'&&p.participants.includes(USER)).length+'개 · 저장한 글 '+state.posts.filter(p=>p.saved.includes(USER)).length+'개</p><a class="btn soft" href="profile.html">내 활동 보기</a></div><p class="form-help">수업용 버전에는 외부 푸시 알림이 없습니다.</p>');
 if(action==='edit-profile'){const fields=[['university','학교'],['department','학과'],['bio','소개'],['languages','사용 언어 (쉼표로 구분)'],['interests','관심사 (쉼표로 구분)']];openModal('프로필 수정','<form id="extended-profile-form"><div class="form-fields"><label class="field">닉네임<input name="nickname" required maxlength="20" value="'+esc(state.nickname)+'"></label>'+fields.map(([key,label])=>'<label class="field">'+label+'<input name="'+key+'" required maxlength="150" value="'+esc(state.profile[key])+'"></label>').join('')+'</div><div class="form-buttons"><button class="btn primary">저장하기</button></div><p class="form-error" id="form-error" role="alert"></p></form>');}
 
-if(action==='about')openModal('수업용 체험판 안내','<div class="about-text"><p>HTML · CSS · JavaScript로 만든 대학생 커뮤니티 팀 프로젝트입니다.</p><p>예시 글, 강의명, 교수명, 장소 및 평가는 시연용입니다. 실제 평가가 아닙니다.</p><p>작성한 글과 댓글은 이 브라우저에만 저장됩니다. 다른 사람과 공유되지 않으며, 실제 회원가입이나 로그인 기능은 없습니다.</p></div>');
+if(action==='about')openModal('수업용 체험판 안내','<div class="about-text"><p>HTML · CSS · JavaScript로 만든 대학생 커뮤니티 팀 프로젝트입니다.</p><p>예시 글, 강의명, 교수명, 장소 및 평가는 시연용입니다. 실제 평가가 아닙니다.</p><p>Supabase 이메일 로그인은 계정 확인에 사용됩니다. 게시글과 프로필은 이 브라우저에 저장되며 사용자 간 공유되지 않습니다.</p></div>');
 if(action==='edit')writeForm(p.type,p);
 if(action==='delete')openModal('글 삭제','<p>이 글과 댓글을 삭제할까요? 삭제하면 되돌릴 수 없어요.</p><div class="form-buttons"><button class="btn" data-action="back">취소</button><button class="btn danger" data-action="confirm-delete">삭제하기</button></div>');
 if(action==='back')detail(activeId);
@@ -78,17 +130,17 @@ if(['likes','saved','join'].includes(action)){if(action==='join')joinMeetup(p,US
 document.addEventListener('input',e=>{if(e.target.id==='search'){query=e.target.value;listContent();}});
 document.addEventListener('change',e=>{if(e.target.id==='meetup-location'){const [lng,lat]=e.target.value.split(',');const f=e.target.form;f.elements.longitude.value=lng||'';f.elements.latitude.value=lat||'';if(lng)f.elements.place.value=e.target.selectedOptions[0].textContent;}
 if(e.target.id==='sort'){sort=e.target.value;listContent();}if(e.target.id==='post-type'){const data=Object.fromEntries(new FormData(e.target.form));writeForm(data.type,null,data);}});
-document.addEventListener('submit',e=>{e.preventDefault();const form=e.target,data=Object.fromEntries(new FormData(form));try{
+document.addEventListener('submit',e=>{e.preventDefault();const form=e.target;if(form.id==='auth-form'){e.stopPropagation();void submitAuth(form);return;}const data=Object.fromEntries(new FormData(form));try{
 if(form.id==='extended-profile-form'){
 const nickname=data.nickname.trim();if(!nickname)throw Error('닉네임을 입력해주세요.');state.nickname=nickname;for(const key of ['university','department','bio','languages','interests'])state.profile[key]=data[key].trim();
 state.posts.forEach(p=>{if(p.authorId===USER)p.author=nickname;p.comments.forEach(c=>{if(c.authorId===USER)c.author=nickname;});});const ok=persist();modal.close();render();if(ok)toast('프로필을 저장했어요.');
 }
 if(form.id==='profile-form'){const nickname=data.nickname.trim();if(!nickname)throw Error('닉네임을 입력해주세요.');state.nickname=nickname;state.posts.forEach(p=>{if(p.authorId===USER)p.author=nickname;p.comments.forEach(c=>{if(c.authorId===USER)c.author=nickname;});});const ok=persist();render();if(ok)toast('닉네임을 변경했어요.');}
 if(form.id==='post-form'){let p;if(form.dataset.id){const i=state.posts.findIndex(p=>p.id===form.dataset.id);p=editPost(state.posts[i],data,USER);state.posts[i]=p;}else{p=createPost(data,USER,state.nickname);state.posts.unshift(p);}const ok=persist();render();detail(p.id);if(ok)toast('이야기를 저장했어요.');}
-if(form.id==='comment-form'){const p=state.posts.find(p=>p.id===activeId);addComment(p,data.body,USER,state.nickname);const ok=persist();render();detail(p.id);if(ok)toast('댓글을 등록했어요.');}
+if(form.id==='comment-form'){if(!requireLogin())return;const p=state.posts.find(p=>p.id===activeId);addComment(p,data.body,USER,state.nickname);const ok=persist();render();detail(p.id);if(ok)toast('댓글을 등록했어요.');}
 }catch(error){const field=document.querySelector('#form-error');if(field)field.textContent=error.message;else toast(error.message);}});
 modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)modal.close();}});
-render();if(page==='map'&&new URLSearchParams(location.search).has('search'))mapView.openSearch();const initial=new URLSearchParams(location.search).get('post');if(initial)detail(initial);
+render();void initializeAuth();if(page==='map'&&new URLSearchParams(location.search).has('search'))mapView.openSearch();const initial=new URLSearchParams(location.search).get('post');if(initial)detail(initial);
 
 
 window.addEventListener('storage',e=>{if(e.key!==KEY||!e.newValue)return;try{const next=JSON.parse(e.newValue);Object.assign(state,next);if(!modal.open&&page!=='chat')render();}catch{}});
