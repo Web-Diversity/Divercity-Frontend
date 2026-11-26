@@ -9,7 +9,7 @@
 - 이메일/비밀번호 로그인과 세션 복원은 `online/static-site/js/app.js`에서 처리합니다.
 - Supabase 연결 코드는 `online/static-site/js/auth.js`의 `getSupabaseClient()`를 사용하세요. 이 함수는 페이지 내 Supabase 클라이언트를 하나만 만들어 재사용합니다.
 - 로그인 외 게시글, 댓글, 공감, 저장, 모임, 프로필 데이터는 현재 `localStorage`에 저장되어 브라우저와 사용자 사이에 공유되지 않습니다. 예시 게시글은 `online/static-site/js/data.js`에 있습니다.
-- Supabase 데이터 테이블과 RLS 정책은 아직 생성하지 않았습니다. 따라서 로그인은 가능해도 게시판의 공유 데이터 기능은 구현·배포 준비가 끝난 상태가 아닙니다.
+- 게시판용 테이블과 RLS 정책은 `supabase/migrations/20261126000100_community_schema.sql`에 정의했습니다. 프로젝트 DB에 migration이 적용되기 전까지는 게시판 데이터를 공유할 수 없습니다.
 
 ## 로컬 설정
 
@@ -44,16 +44,17 @@ if (error) throw error;
 
 ## 게시판 구현 전 협의할 DB 계약
 
-DB 스키마가 아직 없으므로 기능 작업자는 임의의 테이블/컬럼을 만들거나 대시보드에서 즉흥적으로 SQL을 적용하지 마세요. 구현 전에 담당자와 아래 계약을 맞추고, 승인된 SQL migration을 저장소에 추가한 뒤 적용해야 합니다.
+게시판 테이블과 RLS는 아래 migration을 기준으로 구현하세요. 기능 작업자는 임의의 테이블/컬럼을 추가하거나 대시보드에서 SQL을 즉흥적으로 적용하지 말고, 스키마 변경은 새 migration으로 제안하세요.
 
-- `profiles`: `id`는 `auth.users.id`와 일치, 공개 프로필 필드와 생성/수정 시각
-- `posts`: 작성자 UUID, 게시판 종류, 분류, 제목/본문, 선택적 강의·장소·모임 필드, 생성/수정 시각
-- `comments`: 게시글 UUID, 작성자 UUID, 본문, 생성 시각
-- 공감·저장·모임 참여: 별도 관계 테이블과 `(user_id, 대상_id)` 유일 제약으로 중복 방지
-- RLS: 게시글 읽기는 공개 범위에 따르고, 생성·수정·삭제는 `auth.uid()`가 작성자와 일치해야 함. 댓글과 관계 데이터도 사용자 소유권을 검사함.
-- 외래 키, 삭제 연쇄 정책, 필수/선택 필드 및 강의평/리뷰/모임별 유효성 규칙
+- `profiles`: `auth.users.id`를 키로 사용하는 공개 프로필. 계정 생성 trigger가 기본 프로필을 만듦
+- `posts`: `free`, `course`, `review`, `meetup` 종류와 화면 입력값에 대응하는 강의·장소·일정·정원·좌표 필드
+- `comments`: 게시글 및 작성자 UUID, 본문, 생성 시각
+- `post_likes`, `saved_posts`, `meetup_participants`: 사용자별 관계 테이블. 저장/참여 정보는 본인 행만 조회 가능
+- RLS: 게시글·댓글 읽기는 공개, 작성/수정/삭제와 프로필 편집은 소유자만 허용
+- `get_post_engagement(post_ids)`: 공감과 모임 참여 수만 반환
+- `join_meetup(post_id)` / `leave_meetup(post_id)`: 모임 참여/취소 RPC. 정원 확인과 참여 변경을 잠금 안에서 처리
 
-스키마와 정책이 적용된 뒤 `localStorage` 모델을 Supabase 저장소로 교체하세요. 로컬 예시 데이터는 서버에 자동 업로드하지 말고, 예시 콘텐츠로 계속 쓸지 제거할지 제품 담당자와 맞추세요.
+migration을 프로젝트 DB에 적용한 뒤 `localStorage` 모델을 Supabase 저장소로 교체하세요. 로컬 예시 데이터는 서버에 자동 업로드하지 말고, 예시 콘텐츠로 계속 쓸지 제거할지 제품 담당자와 맞추세요.
 
 ## 작업 체크리스트
 
