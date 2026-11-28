@@ -1,6 +1,6 @@
 import {localChatRequest} from './chat-demo.js';
 // Separate local chat service. No production accounts, messages, or database connection.
-export function mountChat({main,esc,icon,state,toast,openModal}){
+export function mountChat({main,esc,icon,state,toast,openModal,getPosts,waitForMeetups}){
  let roomsSignature='';
  let session=null,rooms=[],active=null,room=null,lastSignature='',roomQuery='',messageQuery='',filter='all',busy=false;
  const requested=new URLSearchParams(location.search).get('meetup');
@@ -31,7 +31,7 @@ export function mountChat({main,esc,icon,state,toast,openModal}){
  }
  async function loadRoom(){if(!active||!rooms.find(r=>r.id===active)?.joined)return;const id=active,next=await request('rooms/'+id);if(active!==id)return;room=next;renderMessages();}
  async function refresh(){rooms=await request('rooms');renderRooms();const label=main.querySelector('#connection-label');if(label){label.textContent='● 브라우저 체험 모드';label.classList.remove('offline');}}
- async function init(){try{await request('rooms');layout();await refresh();if(requested){const p=state.posts.find(p=>p.id===requested&&p.type==='meetup');if(p){const r=await request('rooms',{title:p.title,meetupId:p.id});await refresh();await select(r.id);return;}}if(rooms.length)await select(rooms.find(r=>r.joined)?.id||rooms[0].id);}catch(err){toast(err.message);session=null;sessionStorage.removeItem('classroom-chat-session');welcome();}}
+ async function init(){try{await request('rooms');layout();await refresh();if(requested){await waitForMeetups();const p=getPosts().find(p=>p.id===requested&&p.type==='meetup');if(p){const r=await request('rooms',{title:p.title,meetupId:p.id});await refresh();await select(r.id);return;}}if(rooms.length)await select(rooms.find(r=>r.joined)?.id||rooms[0].id);}catch(err){toast(err.message);session=null;sessionStorage.removeItem('classroom-chat-session');welcome();}}
  if(session)init();else welcome();
  const interval=setInterval(async()=>{if(!session||document.hidden||busy)return;try{await refresh();await loadRoom();}catch{const label=main.querySelector('#connection-label');if(label){label.textContent='브라우저 저장 확인 필요';label.classList.add('offline');}}},1800);
  window.addEventListener('pagehide',()=>clearInterval(interval),{once:true});

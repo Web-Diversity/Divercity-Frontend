@@ -3,6 +3,10 @@ import {mountChat} from './chat.js';
 import {createPost,editPost,deletePost,addComment,toggleReaction,joinMeetup,selectPosts} from './model.js';
 import {seedPosts} from './data.js';
 import {getSupabaseClient,supabaseConfigured} from './auth.js';
+import {loadMeetups, meetupCount, saveMeetup, removeMeetup, setMeetupParticipation} from './meetup-store.js';
+
+import {loadBoard, saveBoardPost, removeBoardPost, addBoardComment, setBoardReaction} from './board-store.js';
+
 let USER='classroom-me',currentUser=null,supabaseClient=null,authLoadError=false;
 const KEY='divercity-classroom-v1';
 const config={free:{name:'자유게시판',desc:'소소한 일상부터 궁금했던 이야기까지, 편하게 나눠요.',categories:['일상','질문','정보'],icon:'chat'},course:{name:'강의평',desc:'함께 듣고, 솔직하게 나누는 수업 이야기.',categories:['전공','교양'],icon:'book'},review:{name:'캠퍼스 리뷰',desc:'학교 주변의 작고 좋은 발견을 공유해요.',categories:['맛집','카페','시설'],icon:'star'},meetup:{name:'모임',desc:'혼자보다 함께, 새로운 캠퍼스 친구를 만나요.',categories:['스터디','언어교환','취미'],icon:'users'}};
@@ -14,6 +18,71 @@ try{const raw=localStorage.getItem(KEY);if(raw){const saved=JSON.parse(raw);if(s
 let mapView,chatView,campusPlaces=[];
 fetch('/assets/campus-places.json').then(r=>r.json()).then(p=>campusPlaces=p).catch(()=>{});
 state.profile ||= {university:'숭실대학교',department:'컴퓨터학부',bio:'다양한 친구들과 함께 캠퍼스의 일상을 나누고 싶어요.',languages:'한국어, English',interests:'스터디, 언어교환, 취미'};
+let sharedMeetups = [];
+let sharedBoard = [];
+let boardLoadVersion = 0;
+let boardActionPending = false;
+let boardStatus = supabaseConfigured ? '공유 게시글을 불러오는 중이에요…' : 'Supabase 설정이 필요해요. 예시 글을 표시합니다.';
+let meetupStatus = supabaseConfigured ? '공유 모임을 불러오는 중이에요…' : 'Supabase 설정이 필요해요. 예시 모임을 표시합니다.';
+let meetupLoadVersion = 0;
+let meetupReady = Promise.resolve();
+let meetupActionPending = false;
+
+function allPosts() {
+ return supabaseConfigured
+  ? [...state.posts.filter(post => post.type !== 'meetup' && post.type !== 'free'), ...sharedMeetups, ...sharedBoard]
+  : state.posts;
+}
+
+function hasJoinedMeetup(post) {
+ return post.shared ? post.joined : post.participants.includes(USER);
+}
+
+async function refreshMeetups() {
+ if (!supabaseConfigured) return;
+ const version = ++meetupLoadVersion;
+ try {
+  const client = await getSupabaseClient();
+  const posts = await loadMeetups(client, Boolean(currentUser));
+  if (version !== meetupLoadVersion) return;
+  sharedMeetups = posts;
+  meetupStatus = '';
+ } catch (error) {
+  if (version !== meetupLoadVersion) return;
+  meetupStatus = '공유 모임을 불러오지 못했어요. 연결을 확인하고 다시 시도해주세요.';
+  console.warn('Shared meetups:', error?.code || error?.name || 'request failed');
+ }
+ if (page === 'map') mapView?.refresh();
+ else if (page === 'meetup' || page === 'profile') render();
+}
+
+async function refreshBoard() {
+ if (!supabaseConfigured) return;
+ const version = ++boardLoadVersion;
+ try {
+  const client = await getSupabaseClient();
+  const posts = await loadBoard(client, currentUser?.id);
+  if (version !== boardLoadVersion) return;
+  sharedBoard = posts;
+  boardStatus = '';
+ } catch (error) {
+  if (version !== boardLoadVersion) return;
+  boardStatus = '공유 게시글을 불러오지 못했어요. 연결을 확인하고 다시 시도해주세요.';
+  console.warn('Shared board:', error?.code || error?.name || 'request failed');
+ }
+ if (['free', 'home', 'profile'].includes(page)) render();
+}
+
+function updateSharedBoard(post) {
+ ++boardLoadVersion;
+ sharedBoard = [post, ...sharedBoard.filter(item => item.id !== post.id)];
+}
+
+function updateSharedMeetup(post) {
+ ++meetupLoadVersion;
+ sharedMeetups = [post, ...sharedMeetups.filter(item => item.id !== post.id)];
+}
+
 let query='',category='전체',sort='latest',profileTab='mine',activeId=null,timer;
 function toast(message){const el=document.querySelector('#toast');el.textContent=message;el.hidden=false;clearTimeout(timer);timer=setTimeout(()=>el.hidden=true,3200);}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(state));return true;}catch{toast('브라우저 저장 공간을 사용할 수 없어요. 현재 화면에서만 유지됩니다.');return false;}}
@@ -47,9 +116,19 @@ async function submitAuth(form){
  finally{if(button&&button.isConnected)button.disabled=false;}
 }
 function applyUser(user){
+ const previousUserId = currentUser?.id;
  currentUser=user||null;USER=currentUser?.id||'classroom-me';
  if(currentUser){const profileName=currentUser.user_metadata?.nickname||currentUser.email?.split('@')[0];if(profileName&&(state.nickname==='새내기 다이버'||!state.nickname)){state.nickname=profileName.slice(0,20);persist();}}
+ const accountChanged = currentUser?.id !== previousUserId;
+ if (accountChanged) {
+  sharedMeetups = sharedMeetups.map(post => ({...post, joined: false}));
+  sharedBoard = sharedBoard.map(post => ({...post, likes: [], saved: []}));
+ }
  render();
+ if (accountChanged) {
+  void refreshMeetups();
+  if (['free', 'home', 'profile'].includes(page)) void refreshBoard();
+ }
 }
 async function signOut(){if(!supabaseClient)return;const {error}=await supabaseClient.auth.signOut({scope:'local'});if(error){toast('로그아웃하지 못했어요. 다시 시도해주세요.');return;}applyUser(null);toast('로그아웃했어요.');}
 async function initializeAuth(){
@@ -60,7 +139,9 @@ async function initializeAuth(){
   const {data,error}=await supabaseClient.auth.getSession();if(error)throw error;
   currentUser=data.session?.user||null;USER=currentUser?.id||'classroom-me';
   if(currentUser){const profileName=currentUser.user_metadata?.nickname||currentUser.email?.split('@')[0];if(profileName&&state.nickname==='새내기 다이버'){state.nickname=profileName.slice(0,20);persist();}}
-  supabaseClient.auth.onAuthStateChange((_event,session)=>{applyUser(session?.user||null);});
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+   setTimeout(() => applyUser(session?.user || null), 0);
+  });
   render();
  }catch{authLoadError=true;}
 }
@@ -68,7 +149,8 @@ function icon(name){const d={home:'M3 10 12 3l9 7M5 9v12h14V9M9 21v-8h6v8',chat:
 const stars=n=>'<span class="stars" aria-label="'+n+'점">'+ '★'.repeat(n)+'☆'.repeat(5-n)+'</span>';
 const date=s=>new Date(s).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});
 const url=p=>paths[p.type]+'?post='+encodeURIComponent(p.id);
-function meta(p){return '<div class="meta"><span>'+esc(p.author)+'</span><span>'+date(p.createdAt)+'</span><span class="green">♡ '+p.likes.length+'</span><span>댓글 '+p.comments.length+'</span>'+(p.sample?'<span>예시 글</span>':'')+'</div>';}
+const countLikes = post => post.likeCount ?? post.likes.length;
+function meta(p){return '<div class="meta"><span>'+esc(p.author)+'</span><span>'+date(p.createdAt)+'</span><span class="green">♡ '+countLikes(p)+'</span><span>댓글 '+p.comments.length+'</span>'+(p.sample?'<span>예시 글</span>':'')+'</div>';}
 function shell(){
  document.querySelector('#header').innerHTML='<div class="app-topbar"><button class="round-button" data-action="header-search" aria-label="지도 검색">'+icon('search')+'</button><a class="wordmark" href="index.html">Divercity</a><button class="btn small auth-button" data-action="auth">'+(currentUser?'로그아웃':'로그인')+'</button><button class="round-button" data-action="notifications" aria-label="알림"><svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M9 21h6"/></svg></button></div>';
  document.querySelector('#sidebar').innerHTML='<nav class="community-nav">'+[['home','커뮤니티'],['free','자유게시판'],['course','강의평'],['review','캠퍼스 리뷰'],['meetup','모임 목록']].map(([key,label])=>'<a class="'+(page===key?'active':'')+'" href="'+paths[key]+'">'+label+'</a>').join('')+'</nav>';
@@ -82,65 +164,299 @@ if(p.type==='course')inner+='<div class="rating-row"><h2>'+esc(p.subject)+'</h2>
 else inner+='<h2>'+esc(p.title)+'</h2>';
 if(p.type==='review')inner+=stars(p.rating);
 inner+='<p class="excerpt">'+esc(p.body)+'</p>';
-if(p.type==='meetup')inner+='<div class="meetup-info"><span>◷ '+esc(p.date)+' · '+esc(p.time)+'</span><span>⌖ '+esc(p.place)+'</span></div><div class="progress"><span style="width:'+Math.min(100,p.participants.length/p.capacity*100)+'%"></span></div><p class="subtitle">'+p.participants.length+'/'+p.capacity+'명 · '+(new Date(p.date+'T'+p.time)<=new Date()?'종료':p.participants.length>=p.capacity?'모집 완료':'모집 중')+'</p>';
+if(p.type==='meetup')inner+='<div class="meetup-info"><span>◷ '+esc(p.date)+' · '+esc(p.time)+'</span><span>⌖ '+esc(p.place)+'</span></div><div class="progress"><span style="width:'+Math.min(100,meetupCount(p)/p.capacity*100)+'%"></span></div><p class="subtitle">'+meetupCount(p)+'/'+p.capacity+'명 · '+(new Date(p.date+'T'+p.time)<=new Date()?'종료':meetupCount(p)>=p.capacity?'모집 완료':'모집 중')+'</p>';
 return '<a href="'+url(p)+'" class="'+(p.type==='free'?'board-item':'panel content-card')+'">'+inner+meta(p)+'</a>';}
-function home(){main.innerHTML='<div class="page-head"><div><div class="eyebrow">HELLO, DIVER!</div><h1>오늘의 캠퍼스는 어떤가요?</h1><p>작은 이야기가 모여, 더 즐거운 대학 생활.</p></div><span class="date">'+new Date().toLocaleDateString('ko-KR')+'</span></div><section class="hero"><div><span class="eyebrow">YOUR CAMPUS, OUR STORIES</span><h2>다름이 모여,<br>우리의 일상이 되다.</h2><p>궁금했던 수업부터 함께할 친구까지.<br>캠퍼스의 모든 이야기를 여기서 시작해요.</p><a class="btn primary" href="board.html">이야기 둘러보기 →</a></div><svg class="hero-art" viewBox="0 0 220 165" aria-hidden="true"><circle cx="121" cy="82" r="76" fill="#dbe6d3"/><g transform="rotate(-12 100 90)"><rect x="32" y="38" width="100" height="109" rx="7" fill="#7f9e76"/><path d="M50 59h62M50 72h62M50 85h42" stroke="#dbe6d3" stroke-width="4"/></g><g transform="rotate(9 145 70)"><rect x="92" y="15" width="99" height="118" rx="7" fill="#fffdf6"/><path d="M110 38h60M110 50h45M110 96h60M110 108h40" stroke="#dfe5d5" stroke-width="4"/><path d="m143 59 5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z" fill="#d3ad66"/></g><circle cx="185" cy="138" r="17" fill="#d6b778"/><path d="m178 138 5 5 9-11" stroke="#fff" fill="none" stroke-width="3"/></svg></section><div class="quick-links">'+Object.entries(config).map(([key,c])=>'<a class="quick-link" href="'+paths[key]+'"><span class="quick-icon">'+icon(c.icon)+'</span><span><strong>'+c.name+'</strong><small>'+({free:'우리의 일상 이야기',course:'수강 전, 먼저 살펴봐요',review:'캠퍼스 주변의 발견',meetup:'함께하면 더 즐거워요'}[key])+'</small></span></a>').join('')+'</div><div class="home-grid"><section class="panel panel-padding"><div class="section-title"><h2>지금, 인기 있는 이야기</h2><a href="board.html">더보기 →</a></div>'+selectPosts(state.posts,{type:'free',sort:'popular'}).slice(0,4).map(p=>card(p,true)).join('')+'</section><section class="panel panel-padding"><div class="section-title"><h2>먼저 들어본 강의 이야기</h2><a href="courses.html">더보기 →</a></div>'+selectPosts(state.posts,{type:'course'}).slice(0,3).map(p=>'<a class="course-mini" href="'+url(p)+'"><strong>'+esc(p.subject)+'</strong>'+stars(p.rating)+'<p>'+esc(p.title)+'</p></a>').join('')+'</section></div><div class="community-note">'+icon('users')+'서로를 존중하는 한마디, 우리 커뮤니티의 시작이에요.</div>';}
-function currentPosts(){let posts=state.posts;if(page==='profile')posts=posts.filter(p=>profileTab==='mine'?p.authorId===USER:profileTab==='saved'?p.saved.includes(USER):p.type==='meetup'&&p.participants.includes(USER));return selectPosts(posts,{type:config[page]?page:undefined,query,category,sort});}
+function home(){main.innerHTML='<div class="page-head"><div><div class="eyebrow">HELLO, DIVER!</div><h1>오늘의 캠퍼스는 어떤가요?</h1><p>작은 이야기가 모여, 더 즐거운 대학 생활.</p></div><span class="date">'+new Date().toLocaleDateString('ko-KR')+'</span></div><section class="hero"><div><span class="eyebrow">YOUR CAMPUS, OUR STORIES</span><h2>다름이 모여,<br>우리의 일상이 되다.</h2><p>궁금했던 수업부터 함께할 친구까지.<br>캠퍼스의 모든 이야기를 여기서 시작해요.</p><a class="btn primary" href="board.html">이야기 둘러보기 →</a></div><svg class="hero-art" viewBox="0 0 220 165" aria-hidden="true"><circle cx="121" cy="82" r="76" fill="#dbe6d3"/><g transform="rotate(-12 100 90)"><rect x="32" y="38" width="100" height="109" rx="7" fill="#7f9e76"/><path d="M50 59h62M50 72h62M50 85h42" stroke="#dbe6d3" stroke-width="4"/></g><g transform="rotate(9 145 70)"><rect x="92" y="15" width="99" height="118" rx="7" fill="#fffdf6"/><path d="M110 38h60M110 50h45M110 96h60M110 108h40" stroke="#dfe5d5" stroke-width="4"/><path d="m143 59 5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z" fill="#d3ad66"/></g><circle cx="185" cy="138" r="17" fill="#d6b778"/><path d="m178 138 5 5 9-11" stroke="#fff" fill="none" stroke-width="3"/></svg></section><div class="quick-links">'+Object.entries(config).map(([key,c])=>'<a class="quick-link" href="'+paths[key]+'"><span class="quick-icon">'+icon(c.icon)+'</span><span><strong>'+c.name+'</strong><small>'+({free:'우리의 일상 이야기',course:'수강 전, 먼저 살펴봐요',review:'캠퍼스 주변의 발견',meetup:'함께하면 더 즐거워요'}[key])+'</small></span></a>').join('')+'</div><div class="home-grid"><section class="panel panel-padding"><div class="section-title"><h2>지금, 인기 있는 이야기</h2><a href="board.html">더보기 →</a></div>'+selectPosts(allPosts(),{type:'free',sort:'popular'}).slice(0,4).map(p=>card(p,true)).join('')+'</section><section class="panel panel-padding"><div class="section-title"><h2>먼저 들어본 강의 이야기</h2><a href="courses.html">더보기 →</a></div>'+selectPosts(state.posts,{type:'course'}).slice(0,3).map(p=>'<a class="course-mini" href="'+url(p)+'"><strong>'+esc(p.subject)+'</strong>'+stars(p.rating)+'<p>'+esc(p.title)+'</p></a>').join('')+'</section></div><div class="community-note">'+icon('users')+'서로를 존중하는 한마디, 우리 커뮤니티의 시작이에요.</div>';}
+function currentPosts(){let posts=allPosts();if(page==='profile')posts=posts.filter(p=>profileTab==='mine'?p.authorId===USER:profileTab==='saved'?p.saved.includes(USER):p.type==='meetup'&&hasJoinedMeetup(p));return selectPosts(posts,{type:config[page]?page:undefined,query,category,sort});}
 function listContent(){const posts=currentPosts(),el=document.querySelector('#results');if(!el)return;el.innerHTML='<p class="results-count">총 '+posts.length+'개의 이야기</p><div class="'+(page==='free'?'panel':'cards')+'">'+(posts.length?posts.map(p=>card(p)).join(''):'<div class="empty"><h2>아직 이야기가 없어요</h2><p>검색어를 바꾸거나 첫 이야기를 남겨보세요.</p></div>')+'</div>';}
 function listing(){const c=config[page];main.innerHTML='<div class="page-head"><div><div class="eyebrow">CAMPUS COMMUNITY</div><h1>'+c.name+'</h1><p>'+c.desc+'</p></div><button class="btn primary" data-action="write">＋ 글쓰기</button></div><div class="toolbar"><label class="search-box">'+icon('search')+'<input id="search" aria-label="게시글 검색" placeholder="어떤 이야기를 찾고 있나요?" value="'+esc(query)+'"></label><select id="sort" aria-label="정렬"><option value="latest">최신순</option><option value="popular">공감순</option>'+(['course','review'].includes(page)?'<option value="rating">별점순</option>':'')+'</select></div><div class="filters">'+['전체',...c.categories].map(cat=>'<button class="filter '+(category===cat?'active':'')+'" data-category="'+cat+'">'+cat+'</button>').join('')+'</div><div id="results"></div>';document.querySelector('#sort').value=sort;listContent();}
 function profile(){
  const info=state.profile;
- main.innerHTML='<section class="reference-profile"><div class="profile-cover"></div><div class="profile-identity"><span class="profile-photo">'+esc(state.nickname.slice(0,1))+'</span><button class="btn" data-action="edit-profile">프로필 수정</button><h1>'+esc(state.nickname)+'</h1><p class="profile-handle">@campus_diver · 수업용 프로필</p><h3>'+icon('book')+' '+esc(info.university)+'</h3><p class="profile-major">'+esc(info.department)+'</p><p class="profile-bio">'+esc(info.bio)+'</p><div class="interest-tags">'+info.interests.split(',').filter(Boolean).map(v=>'<span>#'+esc(v.trim())+'</span>').join('')+'</div><div class="language-cards">'+info.languages.split(',').filter(Boolean).map(v=>'<span>'+icon('chat')+esc(v.trim())+'</span>').join('')+'</div></div><div class="profile-stat-bar"><span><strong>'+state.posts.filter(p=>p.authorId===USER).length+'</strong>작성한 글</span><span><strong>'+state.posts.filter(p=>p.saved.includes(USER)).length+'</strong>저장한 글</span><span><strong>'+state.posts.filter(p=>p.type==='meetup'&&p.participants.includes(USER)).length+'</strong>참여한 모임</span></div></section><div class="filters profile-tabs">'+[['mine','작성한 글'],['saved','저장한 글'],['joined','참여한 모임']].map(([k,v])=>'<button class="filter '+(k===profileTab?'active':'')+'" data-tab="'+k+'">'+v+'</button>').join('')+'</div><div id="results"></div>';
+ main.innerHTML='<section class="reference-profile"><div class="profile-cover"></div><div class="profile-identity"><span class="profile-photo">'+esc(state.nickname.slice(0,1))+'</span><button class="btn" data-action="edit-profile">프로필 수정</button><h1>'+esc(state.nickname)+'</h1><p class="profile-handle">@campus_diver · 수업용 프로필</p><h3>'+icon('book')+' '+esc(info.university)+'</h3><p class="profile-major">'+esc(info.department)+'</p><p class="profile-bio">'+esc(info.bio)+'</p><div class="interest-tags">'+info.interests.split(',').filter(Boolean).map(v=>'<span>#'+esc(v.trim())+'</span>').join('')+'</div><div class="language-cards">'+info.languages.split(',').filter(Boolean).map(v=>'<span>'+icon('chat')+esc(v.trim())+'</span>').join('')+'</div></div><div class="profile-stat-bar"><span><strong>'+allPosts().filter(p=>p.authorId===USER).length+'</strong>작성한 글</span><span><strong>'+allPosts().filter(p=>p.saved.includes(USER)).length+'</strong>저장한 글</span><span><strong>'+allPosts().filter(p=>p.type==='meetup'&&hasJoinedMeetup(p)).length+'</strong>참여한 모임</span></div></section><div class="filters profile-tabs">'+[['mine','작성한 글'],['saved','저장한 글'],['joined','참여한 모임']].map(([k,v])=>'<button class="filter '+(k===profileTab?'active':'')+'" data-tab="'+k+'">'+v+'</button>').join('')+'</div><div id="results"></div>';
  listContent();
 }
 function render(){
  shell();
- const api={main,esc,icon,state,detail,writeForm,toast,openModal};
+ const api = {
+  main, esc, icon, state, detail, writeForm, toast, openModal,
+  getPosts: allPosts,
+  waitForMeetups: () => meetupReady,
+  getMeetupStatus: () => meetupStatus,
+  retryMeetups: refreshMeetups,
+ };
  if(page==='map'){if(!mapView)mapView=mountMap(api);else mapView.refresh();return;}
  if(page==='chat'){if(!chatView)chatView=mountChat(api);return;}
  if(page==='home')home();else if(page==='profile')profile();else listing();
+ if (page === 'meetup' && meetupStatus) {
+  main.insertAdjacentHTML('afterbegin', '<p class="status-banner" role="status">' + esc(meetupStatus) +
+   (supabaseConfigured ? ' <button class="btn small" data-action="refresh-meetups">다시 불러오기</button>' : '') + '</p>');
+ }
+ if (['free', 'home'].includes(page) && boardStatus) {
+  main.insertAdjacentHTML('afterbegin', '<p class="status-banner" role="status">' + esc(boardStatus) +
+   (supabaseConfigured ? ' <button class="btn small" data-action="refresh-board">다시 불러오기</button>' : '') + '</p>');
+ }
  if(warning)main.insertAdjacentHTML('afterbegin','<p class="status-banner">'+warning+'</p>');
  main.insertAdjacentHTML('beforeend','<footer><span>Divercity · 수업용 공개 체험판</span><button data-action="about">체험판 안내 ↗</button></footer>');
 }
 function openModal(title,body){modal.innerHTML='<div class="modal-head"><h2 id="modal-title">'+esc(title)+'</h2><button class="close-btn" data-action="close" aria-label="닫기">×</button></div><div class="modal-body">'+body+'</div>';if(!modal.open)modal.showModal();}
-function detail(id){const p=state.posts.find(p=>p.id===id);if(!p){toast('글을 찾을 수 없어요.');return;}activeId=id;openModal(config[p.type].name,'<div class="detail-top"><span class="tag">'+esc(p.category)+'</span>'+(p.sample?'<span class="sample-note">시연을 위해 만든 예시 글</span>':'')+'</div><h1>'+esc(p.title)+'</h1>'+meta(p)+(p.rating?'<div class="detail-info">'+esc(p.subject||p.place)+(p.professor?' · '+esc(p.professor):'')+' &nbsp; '+stars(p.rating)+'</div>':'')+(p.type==='meetup'?'<div class="detail-info">'+esc(p.date)+' '+esc(p.time)+' · '+esc(p.place)+'<br>현재 '+p.participants.length+'/'+p.capacity+'명 참여</div>':'')+'<p class="detail-body">'+esc(p.body)+'</p><div class="actions"><button class="btn '+(p.likes.includes(USER)?'selected':'')+'" data-action="likes">♡ 공감 '+p.likes.length+'</button><button class="btn '+(p.saved.includes(USER)?'selected':'')+'" data-action="saved">'+(p.saved.includes(USER)?'✓ 저장됨':'글 저장')+'</button>'+(p.type==='meetup'?'<a class="btn" href="chat.html?meetup='+encodeURIComponent(p.id)+'">모임 채팅</a><button class="btn soft" data-action="join">'+(p.participants.includes(USER)?'참여 중 · 취소':'모임 참여')+'</button>':'')+(p.authorId===USER?'<button class="btn small" data-action="edit">수정</button><button class="btn small danger" data-action="delete">삭제</button>':'')+'</div><section class="comments"><h3>댓글 '+p.comments.length+'</h3>'+p.comments.map(c=>'<div class="comment"><strong>'+esc(c.author)+'</strong> <small>'+date(c.createdAt)+'</small><p>'+esc(c.body)+'</p></div>').join('')+'<form id="comment-form" class="comment-form"><input name="body" maxlength="500" required aria-label="댓글" placeholder="따뜻한 한마디를 남겨주세요"><button class="btn primary">등록</button></form></section>');}
+function detail(id) {
+ const post = allPosts().find(item => item.id === id);
+ if (!post) { toast('글을 찾을 수 없어요.'); return; }
+ activeId = id;
 
+ const isMeetup = post.type === 'meetup';
+ const isOwner = post.authorId === USER;
+ const meetupInfo = isMeetup
+  ? '<div class="detail-info">' + esc(post.date) + ' ' + esc(post.time) + ' · ' + esc(post.place) +
+    '<br>현재 ' + meetupCount(post) + '/' + post.capacity + '명 참여</div>'
+  : '';
+ const ratingInfo = post.rating
+  ? '<div class="detail-info">' + esc(post.subject || post.place) +
+    (post.professor ? ' · ' + esc(post.professor) : '') + ' &nbsp; ' + stars(post.rating) + '</div>'
+  : '';
+ const meetupActions = isMeetup
+  ? '<a class="btn" href="chat.html?meetup=' + encodeURIComponent(post.id) + '">모임 채팅 체험</a>' +
+    (isOwner
+     ? '<span class="btn soft">모임 주최자</span>'
+     : '<button class="btn soft" data-action="join">' +
+       (hasJoinedMeetup(post) ? '참여 중 · 취소' : '모임 참여') + '</button>')
+  : '';
+ const reactions = post.shared && isMeetup ? '' :
+  '<button class="btn ' + (post.likes.includes(USER) ? 'selected' : '') + '" data-action="likes">♡ 공감 ' +
+  countLikes(post) + '</button><button class="btn ' + (post.saved.includes(USER) ? 'selected' : '') +
+  '" data-action="saved">' + (post.saved.includes(USER) ? '✓ 저장됨' : '글 저장') + '</button>';
+ const comments = post.shared && isMeetup ? '' :
+  '<section class="comments"><h3>댓글 ' + post.comments.length + '</h3>' +
+  post.comments.map(comment => '<div class="comment"><strong>' + esc(comment.author) +
+   '</strong> <small>' + date(comment.createdAt) + '</small><p>' + esc(comment.body) + '</p></div>').join('') +
+  '<form id="comment-form" class="comment-form"><input name="body" maxlength="500" required aria-label="댓글" placeholder="따뜻한 한마디를 남겨주세요"><button class="btn primary">등록</button></form></section>';
 
-function writeForm(type=page,post=null,draft={}){if(!config[type])type='free';const values=post||draft,c=config[type];const field=(name,label,input='text',max=80)=>'<label class="field">'+label+'<input name="'+name+'" type="'+input+'" required maxlength="'+max+'" value="'+esc(values[name]||'')+'"></label>';
-openModal(post?'글 수정':'새 이야기 쓰기','<form id="post-form" data-id="'+(post?.id||'')+'"><div class="form-fields"><div class="form-row"><label class="field">게시판<select name="type" id="post-type" '+(post?'disabled':'')+'>'+Object.entries(config).map(([k,v])=>'<option value="'+k+'" '+(type===k?'selected':'')+'>'+v.name+'</option>').join('')+'</select></label><label class="field">분류<select name="category">'+c.categories.map(cat=>'<option '+(values.category===cat?'selected':'')+'>'+cat+'</option>').join('')+'</select></label></div>'+(type==='course'?'<div class="form-row">'+field('subject','과목명','text',50)+field('professor','교수명','text',30)+'</div>':'')+(['review','meetup'].includes(type)?field('place','장소','text',60):'')+(type==='meetup'?'<label class="field">지도 위치<select id="meetup-location" required><option value="">지도에서 모임 위치를 선택해주세요</option>'+campusPlaces.map(p=>'<option value="'+p.lng+','+p.lat+'" '+(Number(values.longitude)===p.lng&&Number(values.latitude)===p.lat?'selected':'')+'>'+esc(p.name)+'</option>').join('')+(values.longitude&&!campusPlaces.some(p=>p.lng===Number(values.longitude)&&p.lat===Number(values.latitude))?'<option selected value="'+Number(values.longitude)+','+Number(values.latitude)+'">지도에서 선택한 위치</option>':'')+'</select></label><input type="hidden" name="longitude" value="'+esc(values.longitude||'')+'"><input type="hidden" name="latitude" value="'+esc(values.latitude||'')+'">':'')+(['review','course'].includes(type)?'<label class="field">별점<select name="rating">'+[5,4,3,2,1].map(n=>'<option value="'+n+'" '+(Number(values.rating)===n?'selected':'')+'>'+n+'점</option>').join('')+'</select></label>':'')+(type==='meetup'?'<div class="form-row">'+field('date','날짜','date')+field('time','시간','time')+'</div><label class="field">정원 (작성자 포함)<input name="capacity" type="number" min="2" max="30" required value="'+(values.capacity||5)+'"></label>':'')+field('title','제목')+'<label class="field">내용<textarea name="body" required maxlength="3000" placeholder="함께 나누고 싶은 이야기를 적어주세요.">'+esc(values.body||'')+'</textarea></label></div><p class="form-help">이 브라우저에 저장되는 수업용 체험판입니다.</p><p class="form-error" id="form-error" role="alert"></p><div class="form-buttons"><button type="button" class="btn" data-action="close">취소</button><button class="btn primary">'+(post?'수정 완료':'등록하기')+'</button></div></form>');}
-document.addEventListener('click',async e=>{const cat=e.target.closest('[data-category]'),tab=e.target.closest('[data-tab]');if(cat){category=cat.dataset.category;render();return;}if(tab){profileTab=tab.dataset.tab;render();return;}const el=e.target.closest('[data-action]');if(!el)return;const action=el.dataset.action,p=state.posts.find(p=>p.id===activeId);
+ openModal(config[post.type].name, '<div class="detail-top"><span class="tag">' + esc(post.category) +
+  '</span>' + (post.sample ? '<span class="sample-note">시연을 위해 만든 예시 글</span>' : '') +
+  '</div><h1>' + esc(post.title) + '</h1>' + meta(post) + ratingInfo + meetupInfo +
+  '<p class="detail-body">' + esc(post.body) + '</p><div class="actions">' + reactions + meetupActions +
+  (isOwner ? '<button class="btn small" data-action="edit">수정</button><button class="btn small danger" data-action="delete">삭제</button>' : '') +
+  '</div>' + comments);
+}
+
+function writeForm(type=page,post=null,draft={}){if(!config[type])type='free';
+ if(type==='meetup'&&!requireLogin())return;const values=post||draft,c=config[type];const field=(name,label,input='text',max=80)=>'<label class="field">'+label+'<input name="'+name+'" type="'+input+'" required maxlength="'+max+'" value="'+esc(values[name]||'')+'"></label>';
+openModal(post?'글 수정':'새 이야기 쓰기','<form id="post-form" data-id="'+(post?.id||'')+'"><div class="form-fields"><div class="form-row"><label class="field">게시판<select name="type" id="post-type" '+(post?'disabled':'')+'>'+Object.entries(config).map(([k,v])=>'<option value="'+k+'" '+(type===k?'selected':'')+'>'+v.name+'</option>').join('')+'</select></label><label class="field">분류<select name="category">'+c.categories.map(cat=>'<option '+(values.category===cat?'selected':'')+'>'+cat+'</option>').join('')+'</select></label></div>'+(type==='course'?'<div class="form-row">'+field('subject','과목명','text',50)+field('professor','교수명','text',30)+'</div>':'')+(['review','meetup'].includes(type)?field('place','장소','text',60):'')+(type==='meetup'?'<label class="field">지도 위치<select id="meetup-location" required><option value="">지도에서 모임 위치를 선택해주세요</option>'+campusPlaces.map(p=>'<option value="'+p.lng+','+p.lat+'" '+(Number(values.longitude)===p.lng&&Number(values.latitude)===p.lat?'selected':'')+'>'+esc(p.name)+'</option>').join('')+(values.longitude&&!campusPlaces.some(p=>p.lng===Number(values.longitude)&&p.lat===Number(values.latitude))?'<option selected value="'+Number(values.longitude)+','+Number(values.latitude)+'">지도에서 선택한 위치</option>':'')+'</select></label><input type="hidden" name="longitude" value="'+esc(values.longitude||'')+'"><input type="hidden" name="latitude" value="'+esc(values.latitude||'')+'">':'')+(['review','course'].includes(type)?'<label class="field">별점<select name="rating">'+[5,4,3,2,1].map(n=>'<option value="'+n+'" '+(Number(values.rating)===n?'selected':'')+'>'+n+'점</option>').join('')+'</select></label>':'')+(type==='meetup'?'<div class="form-row">'+field('date','날짜','date')+field('time','시간','time')+'</div><label class="field">정원 (작성자 포함)<input name="capacity" type="number" min="2" max="30" required value="'+(values.capacity||5)+'"></label>':'')+field('title','제목')+'<label class="field">내용<textarea name="body" required maxlength="3000" placeholder="함께 나누고 싶은 이야기를 적어주세요.">'+esc(values.body||'')+'</textarea></label></div><p class="form-help">'+(type==='meetup'?'모임은 공유 저장소에 등록되어 지도와 모임 목록에 표시됩니다.':type==='free'?'자유게시글은 다른 방문자도 읽을 수 있습니다.':'이 브라우저에 저장되는 수업용 체험판입니다.')+'</p><p class="form-error" id="form-error" role="alert"></p><div class="form-buttons"><button type="button" class="btn" data-action="close">취소</button><button class="btn primary">'+(post?'수정 완료':'등록하기')+'</button></div></form>');}
+document.addEventListener('click',async e=>{const cat=e.target.closest('[data-category]'),tab=e.target.closest('[data-tab]');if(cat){category=cat.dataset.category;render();return;}if(tab){profileTab=tab.dataset.tab;render();return;}const el=e.target.closest('[data-action]');if(!el)return;const action=el.dataset.action,p=allPosts().find(p=>p.id===activeId);
  try{
  if(action==='auth'){if(currentUser)await signOut();else showAuthDialog('signin');return;}
+ if(action==='refresh-board'){await refreshBoard();return;}
+ if(action==='refresh-meetups'){await refreshMeetups();return;}
  if(action==='auth-mode'){showAuthDialog(el.dataset.mode);return;}
  if(['write','create-meetup','edit-profile','edit','delete','confirm-delete','likes','saved','join'].includes(action)&&!requireLogin())return;
 if(action==='close')modal.close();
 if(action==='write')writeForm();
 if(action==='create-meetup')writeForm('meetup');
 if(action==='header-search'){if(mapView)mapView.openSearch();else location.href='index.html?search=1';}
-if(action==='notifications')openModal('알림','<div class="notice-card"><strong>나의 캠퍼스 활동</strong><p>참여한 모임 '+state.posts.filter(p=>p.type==='meetup'&&p.participants.includes(USER)).length+'개 · 저장한 글 '+state.posts.filter(p=>p.saved.includes(USER)).length+'개</p><a class="btn soft" href="profile.html">내 활동 보기</a></div><p class="form-help">수업용 버전에는 외부 푸시 알림이 없습니다.</p>');
+if(action==='notifications')openModal('알림','<div class="notice-card"><strong>나의 캠퍼스 활동</strong><p>참여한 모임 '+allPosts().filter(p=>p.type==='meetup'&&hasJoinedMeetup(p)).length+'개 · 저장한 글 '+allPosts().filter(p=>p.saved.includes(USER)).length+'개</p><a class="btn soft" href="profile.html">내 활동 보기</a></div><p class="form-help">수업용 버전에는 외부 푸시 알림이 없습니다.</p>');
 if(action==='edit-profile'){const fields=[['university','학교'],['department','학과'],['bio','소개'],['languages','사용 언어 (쉼표로 구분)'],['interests','관심사 (쉼표로 구분)']];openModal('프로필 수정','<form id="extended-profile-form"><div class="form-fields"><label class="field">닉네임<input name="nickname" required maxlength="20" value="'+esc(state.nickname)+'"></label>'+fields.map(([key,label])=>'<label class="field">'+label+'<input name="'+key+'" required maxlength="150" value="'+esc(state.profile[key])+'"></label>').join('')+'</div><div class="form-buttons"><button class="btn primary">저장하기</button></div><p class="form-error" id="form-error" role="alert"></p></form>');}
 
-if(action==='about')openModal('수업용 체험판 안내','<div class="about-text"><p>HTML · CSS · JavaScript로 만든 대학생 커뮤니티 팀 프로젝트입니다.</p><p>예시 글, 강의명, 교수명, 장소 및 평가는 시연용입니다. 실제 평가가 아닙니다.</p><p>Supabase 이메일 로그인은 계정 확인에 사용됩니다. 게시글과 프로필은 이 브라우저에 저장되며 사용자 간 공유되지 않습니다.</p></div>');
+if(action==='about')openModal('수업용 체험판 안내','<div class="about-text"><p>HTML · CSS · JavaScript로 만든 대학생 커뮤니티 팀 프로젝트입니다.</p><p>예시 글, 강의명, 교수명, 장소 및 평가는 시연용입니다. 실제 평가가 아닙니다.</p><p>Supabase 이메일 로그인은 계정 확인에 사용됩니다. 자유게시판과 모임은 여러 방문자에게 공개됩니다. 강의평·리뷰·프로필과 채팅 체험은 브라우저에 저장됩니다.</p></div>');
 if(action==='edit')writeForm(p.type,p);
 if(action==='delete')openModal('글 삭제','<p>이 글과 댓글을 삭제할까요? 삭제하면 되돌릴 수 없어요.</p><div class="form-buttons"><button class="btn" data-action="back">취소</button><button class="btn danger" data-action="confirm-delete">삭제하기</button></div>');
 if(action==='back')detail(activeId);
+if (p?.shared && p.type === 'free' && ['confirm-delete', 'likes', 'saved'].includes(action)) {
+ if (boardActionPending) return;
+ boardActionPending = true;
+ el.disabled = true;
+ try {
+  if (action === 'confirm-delete') {
+   await removeBoardPost(supabaseClient, p.id);
+   ++boardLoadVersion;
+   sharedBoard = sharedBoard.filter(post => post.id !== p.id);
+   if (activeId === p.id) modal.close();
+   if (new URLSearchParams(location.search).get('post') === p.id) {
+    history.replaceState(null, '', paths[page]);
+   }
+   render();
+   toast('게시글을 삭제했어요.');
+  } else {
+   const viewerId = currentUser.id;
+   const selected = !p[action].includes(viewerId);
+   const changed = await setBoardReaction(supabaseClient, p.id, action, selected);
+   if (currentUser?.id === viewerId) {
+    updateSharedBoard({
+     ...p,
+     [action]: selected ? [viewerId] : [],
+     likeCount: Math.max(0, p.likeCount + (action === 'likes' && changed ? (selected ? 1 : -1) : 0)),
+    });
+    render();
+    if (modal.open && activeId === p.id && modal.querySelector('#comment-form')) detail(p.id);
+   }
+  }
+  void refreshBoard();
+ } finally {
+  boardActionPending = false;
+  el.disabled = false;
+ }
+ return;
+}
+if (p?.shared && p.type === 'meetup' && ['confirm-delete', 'join'].includes(action)) {
+ if (meetupActionPending) return;
+ meetupActionPending = true;
+ el.disabled = true;
+ try {
+  if (action === 'confirm-delete') {
+   await removeMeetup(supabaseClient, p.id);
+   ++meetupLoadVersion;
+   sharedMeetups = sharedMeetups.filter(post => post.id !== p.id);
+   if (activeId === p.id) modal.close();
+   if (new URLSearchParams(location.search).get('post') === p.id) {
+    history.replaceState(null, '', paths[page]);
+   }
+   render();
+   toast('모임을 삭제했어요.');
+  } else {
+   const viewerId = currentUser.id;
+   const changed = await setMeetupParticipation(supabaseClient, p.id, p.joined);
+   if (currentUser?.id === viewerId) {
+    updateSharedMeetup({
+     ...p, joined: !p.joined,
+     participantCount: Math.max(0, p.participantCount + (changed ? (p.joined ? -1 : 1) : 0)),
+    });
+    render();
+    if (modal.open && activeId === p.id && modal.querySelector('[data-action="join"]')) detail(p.id);
+    toast(p.joined ? '모임 참여를 취소했어요.' : '모임에 참여했어요.');
+   }
+  }
+  void refreshMeetups();
+ } finally {
+  meetupActionPending = false;
+  el.disabled = false;
+ }
+ return;
+}
 if(action==='confirm-delete'){state.posts=deletePost(state.posts,activeId,USER);const ok=persist();modal.close();history.replaceState(null,'',paths[page]);render();if(ok)toast('글을 삭제했어요.');}
 if(['likes','saved','join'].includes(action)){if(action==='join')joinMeetup(p,USER);else toggleReaction(p,action,USER);persist();render();detail(p.id);}
 }catch(error){toast(error.message);}});
 document.addEventListener('input',e=>{if(e.target.id==='search'){query=e.target.value;listContent();}});
 document.addEventListener('change',e=>{if(e.target.id==='meetup-location'){const [lng,lat]=e.target.value.split(',');const f=e.target.form;f.elements.longitude.value=lng||'';f.elements.latitude.value=lat||'';if(lng)f.elements.place.value=e.target.selectedOptions[0].textContent;}
 if(e.target.id==='sort'){sort=e.target.value;listContent();}if(e.target.id==='post-type'){const data=Object.fromEntries(new FormData(e.target.form));writeForm(data.type,null,data);}});
-document.addEventListener('submit',e=>{e.preventDefault();const form=e.target;if(form.id==='auth-form'){e.stopPropagation();void submitAuth(form);return;}const data=Object.fromEntries(new FormData(form));try{
+document.addEventListener('submit',async e=>{e.preventDefault();const form=e.target;if(form.id==='auth-form'){e.stopPropagation();void submitAuth(form);return;}const data=Object.fromEntries(new FormData(form));try{
 if(form.id==='extended-profile-form'){
 const nickname=data.nickname.trim();if(!nickname)throw Error('닉네임을 입력해주세요.');state.nickname=nickname;for(const key of ['university','department','bio','languages','interests'])state.profile[key]=data[key].trim();
 state.posts.forEach(p=>{if(p.authorId===USER)p.author=nickname;p.comments.forEach(c=>{if(c.authorId===USER)c.author=nickname;});});const ok=persist();modal.close();render();if(ok)toast('프로필을 저장했어요.');
 }
 if(form.id==='profile-form'){const nickname=data.nickname.trim();if(!nickname)throw Error('닉네임을 입력해주세요.');state.nickname=nickname;state.posts.forEach(p=>{if(p.authorId===USER)p.author=nickname;p.comments.forEach(c=>{if(c.authorId===USER)c.author=nickname;});});const ok=persist();render();if(ok)toast('닉네임을 변경했어요.');}
-if(form.id==='post-form'){let p;if(form.dataset.id){const i=state.posts.findIndex(p=>p.id===form.dataset.id);p=editPost(state.posts[i],data,USER);state.posts[i]=p;}else{p=createPost(data,USER,state.nickname);state.posts.unshift(p);}const ok=persist();render();detail(p.id);if(ok)toast('이야기를 저장했어요.');}
-if(form.id==='comment-form'){if(!requireLogin())return;const p=state.posts.find(p=>p.id===activeId);addComment(p,data.body,USER,state.nickname);const ok=persist();render();detail(p.id);if(ok)toast('댓글을 등록했어요.');}
+if (form.id === 'post-form') {
+ if (!requireLogin()) return;
+ const previous = form.dataset.id ? allPosts().find(post => post.id === form.dataset.id) : null;
+ if (form.dataset.id && !previous) throw Error('글을 찾을 수 없어요.');
+ const type = previous?.type ?? data.type;
+ if (type === 'free' && supabaseConfigured) {
+  if (boardActionPending) return;
+  if (previous && (!previous.shared || previous.authorId !== currentUser.id)) {
+   throw Error('내가 작성한 공유 게시글만 수정할 수 있어요.');
+  }
+  const draft = createPost({...data, type: 'free'}, currentUser.id, state.nickname);
+  const button = form.querySelector('button.primary');
+  boardActionPending = true;
+  button.disabled = true;
+  try {
+   const saved = await saveBoardPost(supabaseClient, draft, previous);
+   updateSharedBoard(saved);
+   render();
+   if (form.isConnected && modal.open) detail(saved.id);
+   toast(previous ? '게시글을 수정했어요.' : '공유 게시글을 등록했어요.');
+   void refreshBoard();
+  } catch (error) {
+   console.warn('Save board post:', error?.code || error?.name || 'request failed');
+   if (form.isConnected) form.querySelector('#form-error').textContent =
+    '게시글을 저장하지 못했어요. 계정과 연결 상태를 확인해주세요.';
+   else toast('게시글을 저장하지 못했어요.');
+  } finally {
+   boardActionPending = false;
+   button.disabled = false;
+  }
+  return;
+ }
+ if (type === 'meetup') {
+  if (meetupActionPending) return;
+  if (previous && (!previous.shared || previous.authorId !== currentUser.id)) {
+   throw Error('내가 만든 공유 모임만 수정할 수 있어요.');
+  }
+  const draft = createPost({...data, type: 'meetup'}, currentUser.id, state.nickname);
+  if (previous && draft.capacity < meetupCount(previous)) {
+   throw Error('참여 인원보다 정원을 줄일 수 없어요.');
+  }
+  meetupActionPending = true;
+  const button = form.querySelector('button.primary');
+  button.disabled = true;
+  try {
+   const viewerId = currentUser.id;
+   const saved = await saveMeetup(supabaseClient, draft, previous);
+   if (currentUser?.id !== viewerId) saved.joined = false;
+   updateSharedMeetup(saved);
+   render();
+   if (form.isConnected && modal.open) detail(saved.id);
+   toast(previous ? '모임을 수정했어요.' : '공유 모임을 등록했어요.');
+   void refreshMeetups();
+  } catch (error) {
+   console.warn('Save meetup:', error?.code || error?.name || 'request failed');
+   if (form.isConnected) form.querySelector('#form-error').textContent =
+    '모임을 저장하지 못했어요. 계정과 연결 상태를 확인해주세요.';
+   else toast('모임을 저장하지 못했어요.');
+  } finally {
+   meetupActionPending = false;
+   button.disabled = false;
+  }
+  return;
+ }
+ let p;if(form.dataset.id){const i=state.posts.findIndex(p=>p.id===form.dataset.id);p=editPost(state.posts[i],data,USER);state.posts[i]=p;}else{p=createPost(data,USER,state.nickname);state.posts.unshift(p);}const ok=persist();render();detail(p.id);if(ok)toast('이야기를 저장했어요.');}
+if (form.id === 'comment-form') {
+ if (!requireLogin()) return;
+ const post = allPosts().find(post => post.id === activeId);
+ if (!post) return;
+ if (post.shared && post.type === 'free') {
+  if (boardActionPending) return;
+  const button = form.querySelector('button');
+  boardActionPending = true;
+  button.disabled = true;
+  try {
+   const comment = await addBoardComment(supabaseClient, post.id, data.body);
+   const latest = sharedBoard.find(item => item.id === post.id) ?? post;
+   updateSharedBoard({...latest, comments: [...latest.comments, comment]});
+   render();
+   if (form.isConnected && modal.open) detail(post.id);
+   toast('댓글을 등록했어요.');
+   void refreshBoard();
+  } finally {
+   boardActionPending = false;
+   button.disabled = false;
+  }
+  return;
+ }
+ if (post.shared) return;
+ addComment(post,data.body,USER,state.nickname);
+ const ok=persist();
+ render();
+ detail(post.id);
+ if(ok)toast('댓글을 등록했어요.');
+}
 }catch(error){const field=document.querySelector('#form-error');if(field)field.textContent=error.message;else toast(error.message);}});
 modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)modal.close();}});
-render();void initializeAuth();if(page==='map'&&new URLSearchParams(location.search).has('search'))mapView.openSearch();const initial=new URLSearchParams(location.search).get('post');if(initial)detail(initial);
+const authReady = initializeAuth();
+meetupReady = authReady.then(refreshMeetups);
+const boardReady = ['free', 'home', 'profile'].includes(page)
+ ? authReady.then(refreshBoard) : Promise.resolve();
+render();
+const params = new URLSearchParams(location.search);
+if (page === 'map' && params.has('search')) mapView.openSearch();
+const initial = params.get('post');
+if (initial) {
+ if (allPosts().some(post => post.id === initial)) detail(initial);
+ else if (supabaseConfigured && ['meetup', 'free'].includes(page)) {
+  const ready = page === 'meetup' ? meetupReady : boardReady;
+  void ready.then(() => {
+   if (!modal.open) detail(initial);
+  });
+ } else detail(initial);
+}
 
 
 window.addEventListener('storage',e=>{if(e.key!==KEY||!e.newValue)return;try{const next=JSON.parse(e.newValue);Object.assign(state,next);if(!modal.open&&page!=='chat')render();}catch{}});
