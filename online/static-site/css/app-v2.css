@@ -20,4 +20,5 @@ body[data-page=chat] .chat-welcome{width:min(380px,100%)}
 .mapboxgl-ctrl-bottom-right{bottom:98px!important}
 .mapboxgl-ctrl-bottom-left{bottom:98px!important}
 #preview-back{margin:15px;align-self:flex-start}
+.app-topbar .auth-button{margin-left:auto}
 @media(max-width:760px){body[data-page=chat] .layout{height:calc(100dvh - 64px);padding-bottom:105px}}
