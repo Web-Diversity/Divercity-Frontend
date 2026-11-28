@@ -66,6 +66,6 @@ export function selectPosts(posts, {type,query='',category='전체',sort='latest
   const q=query.trim().toLowerCase();
   return posts.filter(p => (!type || p.type===type) && (category==='전체' || p.category===category) &&
     [p.title,p.body,p.subject,p.professor,p.place,p.author].filter(Boolean).join(' ').toLowerCase().includes(q))
-    .sort((a,b) => sort==='popular' ? b.likes.length-a.likes.length || Date.parse(b.createdAt)-Date.parse(a.createdAt) :
+    .sort((a,b) => sort==='popular' ? (b.likeCount ?? b.likes.length)-(a.likeCount ?? a.likes.length) || Date.parse(b.createdAt)-Date.parse(a.createdAt) :
       sort==='rating' ? (b.rating||0)-(a.rating||0) || Date.parse(b.createdAt)-Date.parse(a.createdAt) : Date.parse(b.createdAt)-Date.parse(a.createdAt));
 }
